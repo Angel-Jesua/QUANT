@@ -1,9 +1,8 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const express = require('express');
+const cors = require('cors');
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
+const { userRoutes } = require('./modules/user/user.routes');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -18,16 +17,20 @@ app.use(cors({
 }));
 
 // Basic route
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req: any, res: any) => {
   res.json({ message: 'Backend server is running!' });
 });
 
-// Example API endpoint using Prisma
-app.get('/users', async (req: Request, res: Response) => {
+// API routes
+app.use('/api/users', userRoutes);
+
+// Example API endpoint using Prisma (kept for reference)
+app.get('/users', async (req: any, res: any) => {
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.userAccount.findMany();
     res.json(users);
   } catch (error) {
+    console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });

@@ -1,19 +1,15 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
-const client_1 = require("@prisma/client");
-const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config();
-const app = (0, express_1.default)();
-const prisma = new client_1.PrismaClient();
+const express = require('express');
+const cors = require('cors');
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
+const { userRoutes } = require('./modules/user/user.routes');
+const app = express();
+const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 // Middleware
-app.use(express_1.default.json());
-app.use((0, cors_1.default)({
+app.use(express.json());
+app.use(cors({
     origin: 'http://localhost:4200', // Default Angular dev server
     credentials: true
 }));
@@ -21,13 +17,16 @@ app.use((0, cors_1.default)({
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running!' });
 });
-// Example API endpoint using Prisma
+// API routes
+app.use('/api/users', userRoutes);
+// Example API endpoint using Prisma (kept for reference)
 app.get('/users', async (req, res) => {
     try {
-        const users = await prisma.user.findMany();
+        const users = await prisma.userAccount.findMany();
         res.json(users);
     }
     catch (error) {
+        console.error('Error fetching users:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });

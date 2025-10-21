@@ -4,10 +4,12 @@ const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 async function main() {
     // Create a sample user
-    const user = await prisma.user.create({
+    const user = await prisma.userAccount.create({
         data: {
-            name: 'John Doe',
+            username: 'johndoe',
             email: 'john.doe@example.com',
+            passwordHash: 'hashedpassword',
+            fullName: 'John Doe',
         },
     });
     console.log({ user });
