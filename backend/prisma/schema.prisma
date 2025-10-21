@@ -7,10 +7,165 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ================================
+// ENUM TYPES
+// ================================
+
+enum UserRole {
+  administrator
+  accountant
+}
+
+enum AvatarType {
+  generated
+  uploaded
+  social
+  gravatar
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  login
+  logout
+  failed_login
+  password_change
+  photo_upload
+  photo_delete
+}
+
+// ================================
+// MODELS
+// ================================
+
+model UserAccount {
+  id                   Int       @id @default(autoincrement())
+  username             String    @unique
+  email                String    @unique
+  passwordHash         String
+  fullName             String
+  role                 UserRole  @default(accountant)
+  
+  // Sistema de Avatar Híbrido
+  profileImageUrl      String?
+  avatarType           AvatarType @default(generated)
+  
+  // Control de foto de perfil
+  photoRequested       Boolean   @default(true)
+  photoUploadedAt      DateTime?
+  photoReminderSentAt  DateTime?
+  
+  // Control de estado y seguridad
+  isActive             Boolean   @default(true)
+  lastLogin            DateTime?
+  lastActivity         DateTime?
+  
+  // Seguridad y bloqueos
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  passwordChangedAt    DateTime?
+  mustChangePassword   Boolean   @default(false)
+  
+  // OAuth (opcional para futuro)
+  googleId             String?   @unique
+  facebookId           String?   @unique
+  
+  // Auditoría
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdById          Int?
+  updatedById          Int?
+  
+  // Relaciones auto-referenciales
+  createdEntries       UserAccount[] @relation("CreatedByEntries")
+  updatedEntries       UserAccount[] @relation("UpdatedByEntries")
+  
+  // Relaciones con otras tablas
+  sessions             UserSession[]
+  createdPermissions   RolePermission[] @relation("PermissionCreator")
+  auditLogs            UserAuditLog[]
+  
+  // Referencias a creador y actualizador
+  createdBy            UserAccount? @relation("CreatedByEntries", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy            UserAccount? @relation("UpdatedByEntries", fields: [updatedById], references: [id], onDelete: SetNull)
+  
+  // Índices
+  @@index([username])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([lockedUntil])
+  @@index([avatarType])
+  @@index([photoRequested])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  isActive     Boolean  @default(true)
+  expiresAt    DateTime
+  lastActivity DateTime @default(now())
+  createdAt    DateTime @default(now())
+  
+  // Relación
+  user         UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Índices
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([isActive, expiresAt])
+}
+
+model RolePermission {
+  id         Int      @id @default(autoincrement())
+  role       UserRole
+  module     String
+  canRead    Boolean  @default(false)
+  canCreate  Boolean  @default(false)
+  canUpdate  Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  createdById Int?
+  
+  // Relación
+  createdBy  UserAccount? @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  // Restricción única compuesta
+  @@unique([role, module])
+  
+  // Índices
+  @@index([role, module])
+  @@index([createdById])
+}
+
+model UserAuditLog {
+  id          Int        @id @default(autoincrement())
+  userId      Int?
+  action      AuditAction
+  entityType  String     @default("user")
+  entityId    Int?
+  oldData     Json?
+  newData     Json?
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean    @default(true)
+  errorMessage String?
+  performedAt DateTime   @default(now())
+  
+  // Relación
+  user        UserAccount? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Índices
+  @@index([userId])
+  @@index([action])
+  @@index([performedAt])
+  @@index([entityType, entityId])
+  @@index([userId, performedAt])
 }
