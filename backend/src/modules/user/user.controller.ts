@@ -6,7 +6,9 @@ import {
   validateCreateUser,
   validateRegisterUser,
   validateUpdateUser,
-  validateLogin
+  validateLogin,
+  validateCreateUserWithUniqueness,
+  validateUpdateUserWithUniqueness
 } from './user.validation';
 
 export class UserController {
@@ -59,21 +61,52 @@ export class UserController {
     try {
       const userData: ICreateUser = req.body;
       
-      // Validate user data
-      const validation = validateCreateUser(userData);
-      if (!validation.isValid) {
+      // First, validate basic user data
+      const basicValidation = validateCreateUser(userData);
+      if (!basicValidation.isValid) {
         res.status(400).json({
-          error: 'Validation failed',
-          details: validation.errors
+          success: false,
+          message: 'Validation failed',
+          errors: basicValidation.errors
+        });
+        return;
+      }
+      
+      // Check credential uniqueness
+      const uniquenessCheck = await this.userService.checkCredentialUniqueness(
+        userData.username,
+        userData.email
+      );
+      
+      if (!uniquenessCheck.isUnique) {
+        res.status(409).json({
+          success: false,
+          message: 'Validation failed - duplicate credentials',
+          errors: uniquenessCheck.errors
         });
         return;
       }
 
-      const user = await this.userService.createUser(userData);
-      res.status(201).json(user);
+      // Extract request context for audit logging
+      const requestContext = {
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        userId: (req as any).user?.id // Assuming user ID is available in request after authentication
+      };
+
+      const user = await this.userService.createUser(userData, requestContext);
+      res.status(201).json({
+        success: true,
+        message: 'User created successfully',
+        data: user
+      });
     } catch (error) {
       console.error('Error creating user:', error);
-      res.status(500).json({ error: 'Failed to create user' });
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create user',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -91,14 +124,31 @@ export class UserController {
         return;
       }
 
-      // Validate user data
-      const validation = validateUpdateUser(userData);
-      if (!validation.isValid) {
+      // First, validate basic user data
+      const basicValidation = validateUpdateUser(userData);
+      if (!basicValidation.isValid) {
         res.status(400).json({
           error: 'Validation failed',
-          details: validation.errors
+          details: basicValidation.errors
         });
         return;
+      }
+      
+      // Check credential uniqueness if username or email is being updated
+      if (userData.username || userData.email) {
+        const uniquenessCheck = await this.userService.checkCredentialUniqueness(
+          userData.username,
+          userData.email,
+          userId
+        );
+        
+        if (!uniquenessCheck.isUnique) {
+          res.status(409).json({
+            error: 'Validation failed',
+            details: uniquenessCheck.errors
+          });
+          return;
+        }
       }
 
       const user = await this.userService.updateUser(userId, userData);
@@ -214,55 +264,40 @@ export class UserController {
     try {
       const registrationData: IRegisterUser = req.body;
       
-      // Validate registration data
-      const validation = validateRegisterUser(registrationData);
-      if (!validation.isValid) {
-        const response: IRegistrationResponse = {
-          success: false,
-          message: 'Registration failed due to validation errors',
-          errors: validation.errors
-        };
-        res.status(400).json(response);
-        return;
+      // Extract request context for audit logging
+      const requestContext = {
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        userId: (req as any).user?.id // Assuming user ID is available in request after authentication
+      };
+
+      // Use the comprehensive registration method from the service
+      const response = await this.userService.registerUser(registrationData, requestContext);
+      
+      // Set appropriate HTTP status code based on response
+      if (response.success) {
+        res.status(201).json(response);
+      } else {
+        // Determine appropriate status code based on error type
+        let statusCode = 400; // Default for validation errors
+        
+        // Check if it's a duplicate credential error
+        if (response.errors?.username?.includes('already exists') ||
+            response.errors?.email?.includes('already exists')) {
+          statusCode = 409; // Conflict
+        }
+        
+        res.status(statusCode).json(response);
       }
-
-      // Extract user creation data from registration data
-      const userData: ICreateUser = {
-        username: registrationData.username,
-        email: registrationData.email,
-        password: registrationData.password,
-        fullName: registrationData.fullName,
-        role: registrationData.role
-      };
-
-      const user = await this.userService.createUser(userData);
-      
-      const response: IRegistrationResponse = {
-        success: true,
-        message: 'User registered successfully',
-        user: user
-      };
-      
-      res.status(201).json(response);
     } catch (error) {
       console.error('Error during registration:', error);
       
-      // Handle unique constraint violations
-      if (error instanceof Error && error.message.includes('Unique constraint')) {
-        const response: IRegistrationResponse = {
-          success: false,
-          message: 'Registration failed',
-          errors: {
-            general: 'Username or email already exists'
-          }
-        };
-        res.status(409).json(response);
-        return;
-      }
-      
       const response: IRegistrationResponse = {
         success: false,
-        message: 'Failed to register user'
+        message: 'Failed to register user',
+        errors: {
+          general: error instanceof Error ? error.message : 'Unknown error occurred'
+        }
       };
       res.status(500).json(response);
     }

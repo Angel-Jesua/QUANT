@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserController = void 0;
-const user_service_js_1 = require("./user.service.js");
-const password_js_1 = require("../../utils/password.js");
+const user_service_1 = require("./user.service");
+const password_1 = require("../../utils/password");
+const user_validation_1 = require("./user.validation");
 class UserController {
     constructor() {
-        this.userService = new user_service_js_1.UserService();
+        this.userService = new user_service_1.UserService();
     }
     /**
      * Get all users
@@ -49,9 +50,22 @@ class UserController {
     async createUser(req, res) {
         try {
             const userData = req.body;
-            // Basic validation
-            if (!userData.username || !userData.email || !userData.password || !userData.fullName) {
-                res.status(400).json({ error: 'Missing required fields' });
+            // First, validate basic user data
+            const basicValidation = (0, user_validation_1.validateCreateUser)(userData);
+            if (!basicValidation.isValid) {
+                res.status(400).json({
+                    error: 'Validation failed',
+                    details: basicValidation.errors
+                });
+                return;
+            }
+            // Check credential uniqueness
+            const uniquenessCheck = await this.userService.checkCredentialUniqueness(userData.username, userData.email);
+            if (!uniquenessCheck.isUnique) {
+                res.status(409).json({
+                    error: 'Validation failed',
+                    details: uniquenessCheck.errors
+                });
                 return;
             }
             const user = await this.userService.createUser(userData);
@@ -73,6 +87,26 @@ class UserController {
             if (isNaN(userId)) {
                 res.status(400).json({ error: 'Invalid user ID' });
                 return;
+            }
+            // First, validate basic user data
+            const basicValidation = (0, user_validation_1.validateUpdateUser)(userData);
+            if (!basicValidation.isValid) {
+                res.status(400).json({
+                    error: 'Validation failed',
+                    details: basicValidation.errors
+                });
+                return;
+            }
+            // Check credential uniqueness if username or email is being updated
+            if (userData.username || userData.email) {
+                const uniquenessCheck = await this.userService.checkCredentialUniqueness(userData.username, userData.email, userId);
+                if (!uniquenessCheck.isUnique) {
+                    res.status(409).json({
+                        error: 'Validation failed',
+                        details: uniquenessCheck.errors
+                    });
+                    return;
+                }
             }
             const user = await this.userService.updateUser(userId, userData);
             if (!user) {
@@ -111,9 +145,13 @@ class UserController {
     async login(req, res) {
         try {
             const loginData = req.body;
-            // Basic validation
-            if (!loginData.email || !loginData.password) {
-                res.status(400).json({ error: 'Email and password are required' });
+            // Validate login data
+            const validation = (0, user_validation_1.validateLogin)(loginData);
+            if (!validation.isValid) {
+                res.status(400).json({
+                    error: 'Validation failed',
+                    details: validation.errors
+                });
                 return;
             }
             const user = await this.userService.authenticateUser(loginData);
@@ -145,7 +183,7 @@ class UserController {
                 return;
             }
             // Validate new password strength
-            const passwordValidation = (0, password_js_1.validatePasswordStrength)(newPassword);
+            const passwordValidation = (0, password_1.validatePasswordStrength)(newPassword);
             if (!passwordValidation.isValid) {
                 res.status(400).json({ error: passwordValidation.message });
                 return;
@@ -160,6 +198,59 @@ class UserController {
         catch (error) {
             console.error('Error changing password:', error);
             res.status(500).json({ error: 'Failed to change password' });
+        }
+    }
+    /**
+     * Register a new user with comprehensive validation
+     */
+    async register(req, res) {
+        try {
+            const registrationData = req.body;
+            // Validate registration data
+            const validation = (0, user_validation_1.validateRegisterUser)(registrationData);
+            if (!validation.isValid) {
+                const response = {
+                    success: false,
+                    message: 'Registration failed due to validation errors',
+                    errors: validation.errors
+                };
+                res.status(400).json(response);
+                return;
+            }
+            // Extract user creation data from registration data
+            const userData = {
+                username: registrationData.username,
+                email: registrationData.email,
+                password: registrationData.password,
+                fullName: registrationData.fullName,
+                role: registrationData.role
+            };
+            // Check credential uniqueness
+            const uniquenessCheck = await this.userService.checkCredentialUniqueness(userData.username, userData.email);
+            if (!uniquenessCheck.isUnique) {
+                const response = {
+                    success: false,
+                    message: 'Registration failed due to duplicate credentials',
+                    errors: uniquenessCheck.errors
+                };
+                res.status(409).json(response);
+                return;
+            }
+            const user = await this.userService.createUser(userData);
+            const response = {
+                success: true,
+                message: 'User registered successfully',
+                user: user
+            };
+            res.status(201).json(response);
+        }
+        catch (error) {
+            console.error('Error during registration:', error);
+            const response = {
+                success: false,
+                message: 'Failed to register user'
+            };
+            res.status(500).json(response);
         }
     }
 }

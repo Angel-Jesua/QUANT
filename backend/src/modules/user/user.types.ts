@@ -94,3 +94,12 @@ export interface IUserSession {
   lastActivity: Date;
   createdAt: Date;
 }
+
+// Interface for credential uniqueness check result
+export interface ICredentialUniquenessResult {
+  isUnique: boolean;
+  errors: {
+    username?: string;
+    email?: string;
+  };
+}

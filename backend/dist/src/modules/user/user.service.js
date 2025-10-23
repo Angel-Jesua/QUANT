@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
 const client_1 = require("@prisma/client");
-const password_js_1 = require("../../utils/password.js");
+const password_1 = require("../../utils/password");
 const prisma = new client_1.PrismaClient();
 class UserService {
     /**
@@ -60,11 +60,55 @@ class UserService {
         };
     }
     /**
+     * Check if username and/or email already exist in the database
+     * @param username - Username to check (optional)
+     * @param email - Email to check (optional)
+     * @param excludeUserId - User ID to exclude from the check (for updates)
+     * @returns ICredentialUniquenessResult - Result indicating uniqueness and any errors
+     */
+    async checkCredentialUniqueness(username, email, excludeUserId) {
+        const errors = {};
+        // Check username uniqueness if provided
+        if (username) {
+            const existingUsername = await prisma.userAccount.findFirst({
+                where: {
+                    username: username,
+                    ...(excludeUserId && { id: { not: excludeUserId } })
+                }
+            });
+            if (existingUsername) {
+                errors.username = 'Username already exists';
+            }
+        }
+        // Check email uniqueness if provided
+        if (email) {
+            const existingEmail = await prisma.userAccount.findFirst({
+                where: {
+                    email: email,
+                    ...(excludeUserId && { id: { not: excludeUserId } })
+                }
+            });
+            if (existingEmail) {
+                errors.email = 'Email already exists';
+            }
+        }
+        return {
+            isUnique: Object.keys(errors).length === 0,
+            errors
+        };
+    }
+    /**
      * Create a new user
      */
     async createUser(userData) {
+        // Check credential uniqueness before creating user
+        const uniquenessCheck = await this.checkCredentialUniqueness(userData.username, userData.email);
+        if (!uniquenessCheck.isUnique) {
+            const errorMessages = Object.values(uniquenessCheck.errors).join(', ');
+            throw new Error(`Credential validation failed: ${errorMessages}`);
+        }
         // Hash the password before storing it
-        const passwordHash = await (0, password_js_1.hashPassword)(userData.password);
+        const passwordHash = await (0, password_1.hashPassword)(userData.password);
         const user = await prisma.userAccount.create({
             data: {
                 username: userData.username,
@@ -97,6 +141,14 @@ class UserService {
      * Update user
      */
     async updateUser(id, userData) {
+        // Check credential uniqueness if username or email is being updated
+        if (userData.username || userData.email) {
+            const uniquenessCheck = await this.checkCredentialUniqueness(userData.username, userData.email, id);
+            if (!uniquenessCheck.isUnique) {
+                const errorMessages = Object.values(uniquenessCheck.errors).join(', ');
+                throw new Error(`Credential validation failed: ${errorMessages}`);
+            }
+        }
         const user = await prisma.userAccount.update({
             where: { id },
             data: userData,
@@ -143,7 +195,7 @@ class UserService {
                 return null;
             }
             // Compare passwords
-            const isPasswordValid = await (0, password_js_1.comparePassword)(loginData.password, user.passwordHash);
+            const isPasswordValid = await (0, password_1.comparePassword)(loginData.password, user.passwordHash);
             if (!isPasswordValid) {
                 return null;
             }
@@ -185,12 +237,12 @@ class UserService {
                 return false;
             }
             // Verify current password
-            const isCurrentPasswordValid = await (0, password_js_1.comparePassword)(currentPassword, user.passwordHash);
+            const isCurrentPasswordValid = await (0, password_1.comparePassword)(currentPassword, user.passwordHash);
             if (!isCurrentPasswordValid) {
                 return false;
             }
             // Hash new password
-            const newPasswordHash = await (0, password_js_1.hashPassword)(newPassword);
+            const newPasswordHash = await (0, password_1.hashPassword)(newPassword);
             // Update password
             await prisma.userAccount.update({
                 where: { id: userId },

@@ -1,4 +1,4 @@
-import { ICreateUser, IRegisterUser, IRegistrationErrors, IUpdateUser } from './user.types';
+import { ICreateUser, IRegisterUser, IRegistrationErrors, IUpdateUser, ICredentialUniquenessResult } from './user.types';
 
 /**
  * Validates email format using a regular expression
@@ -213,6 +213,56 @@ export function validateUpdateUser(userData: IUpdateUser): { isValid: boolean; e
   return {
     isValid: Object.keys(errors).length === 0,
     errors
+  };
+}
+
+/**
+ * Validates user creation data including credential uniqueness
+ * @param userData - User data to validate
+ * @param uniquenessResult - Result from credential uniqueness check
+ * @returns object - Validation result with isValid and errors
+ */
+export function validateCreateUserWithUniqueness(
+  userData: ICreateUser,
+  uniquenessResult: ICredentialUniquenessResult
+): { isValid: boolean; errors: Partial<ICreateUser> } {
+  // First, perform basic validation
+  const basicValidation = validateCreateUser(userData);
+  
+  // Merge uniqueness errors with basic validation errors
+  const mergedErrors = {
+    ...basicValidation.errors,
+    ...uniquenessResult.errors
+  };
+  
+  return {
+    isValid: Object.keys(mergedErrors).length === 0,
+    errors: mergedErrors
+  };
+}
+
+/**
+ * Validates user update data including credential uniqueness
+ * @param userData - User update data to validate
+ * @param uniquenessResult - Result from credential uniqueness check
+ * @returns object - Validation result with isValid and errors
+ */
+export function validateUpdateUserWithUniqueness(
+  userData: IUpdateUser,
+  uniquenessResult: ICredentialUniquenessResult
+): { isValid: boolean; errors: Partial<IUpdateUser> } {
+  // First, perform basic validation
+  const basicValidation = validateUpdateUser(userData);
+  
+  // Merge uniqueness errors with basic validation errors
+  const mergedErrors = {
+    ...basicValidation.errors,
+    ...uniquenessResult.errors
+  };
+  
+  return {
+    isValid: Object.keys(mergedErrors).length === 0,
+    errors: mergedErrors
   };
 }
 

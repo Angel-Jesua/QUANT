@@ -17,6 +17,12 @@ Currently implementing the user authentication and management system for the QUA
     - OAuth fields for future integration
 *   Created SQL migration script for database initialization.
 *   Added comprehensive documentation for the database schema.
+*   **Implemented credential uniqueness verification system:**
+    - Added `checkCredentialUniqueness` method in UserService
+    - Integrated uniqueness checks in createUser and updateUser methods
+    - Added specific error messages for duplicate usernames and emails
+    - Updated controllers to handle uniqueness validation with proper HTTP status codes
+    - Created comprehensive documentation and examples for the new functionality
 
 ## Next Steps
 
