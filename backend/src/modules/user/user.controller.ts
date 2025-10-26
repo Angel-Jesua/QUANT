@@ -10,6 +10,9 @@ import {
   validateCreateUserWithUniqueness,
   validateUpdateUserWithUniqueness
 } from './user.validation';
+import { generateAccessToken, JWTConfigError } from '../../utils/jwt';
+import { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext, logAuditError } from '../../utils/error';
+import { AuditAction } from '@prisma/client';
 
 export class UserController {
   private userService = new UserService();
@@ -22,7 +25,14 @@ export class UserController {
       const users = await this.userService.getAllUsers();
       res.json(users);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      logErrorContext('user.getAll.error', error, { ip: req.ip || (req as any).connection?.remoteAddress, ua: req.get('User-Agent') });
+      await logAuditError({
+        action: AuditAction.update,
+        entityType: 'user',
+        errorKey: 'fetch_users_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
       res.status(500).json({ error: 'Failed to fetch users' });
     }
   }
@@ -49,7 +59,15 @@ export class UserController {
 
       res.json(user);
     } catch (error) {
-      console.error('Error fetching user:', error);
+      logErrorContext('user.getById.error', error, { id: req.params.id });
+      await logAuditError({
+        action: AuditAction.update,
+        entityType: 'user',
+        entityId: parseInt(req.params.id, 10),
+        errorKey: 'fetch_user_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
       res.status(500).json({ error: 'Failed to fetch user' });
     }
   }
@@ -101,7 +119,16 @@ export class UserController {
         data: user
       });
     } catch (error) {
-      console.error('Error creating user:', error);
+      const safeBody = req?.body as Partial<ICreateUser> | undefined;
+      logErrorContext('user.create.error', error, { username: safeBody?.username, email: 'redacted' });
+      await logAuditError({
+        action: AuditAction.create,
+        entityType: 'user',
+        errorKey: 'create_user_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        newData: { username: safeBody?.username, email: safeBody?.email, fullName: safeBody?.fullName }
+      });
       res.status(500).json({
         success: false,
         message: 'Failed to create user',
@@ -160,7 +187,16 @@ export class UserController {
 
       res.json(user);
     } catch (error) {
-      console.error('Error updating user:', error);
+      const idParam = parseInt(req.params.id, 10);
+      logErrorContext('user.update.error', error, { id: idParam });
+      await logAuditError({
+        action: AuditAction.update,
+        entityType: 'user',
+        entityId: isNaN(idParam) ? undefined : idParam,
+        errorKey: 'update_user_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
       res.status(500).json({ error: 'Failed to update user' });
     }
   }
@@ -181,7 +217,16 @@ export class UserController {
       await this.userService.deleteUser(userId);
       res.status(204).send();
     } catch (error) {
-      console.error('Error deleting user:', error);
+      const idParam = parseInt(req.params.id, 10);
+      logErrorContext('user.delete.error', error, { id: idParam });
+      await logAuditError({
+        action: AuditAction.delete,
+        entityType: 'user',
+        entityId: isNaN(idParam) ? undefined : idParam,
+        errorKey: 'delete_user_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
       res.status(500).json({ error: 'Failed to delete user' });
     }
   }
@@ -191,29 +236,114 @@ export class UserController {
    */
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const loginData: ILoginUser = req.body;
-      
-      // Validate login data
-      const validation = validateLogin(loginData);
-      if (!validation.isValid) {
-        res.status(400).json({
-          error: 'Validation failed',
-          details: validation.errors
-        });
+      const { email, password } = req.body || {};
+
+      // Basic presence validation
+      const missingErrors: { email?: string; password?: string } = {};
+      if (!email || typeof email !== 'string' || email.trim().length === 0) {
+        missingErrors.email = 'Email is required';
+      }
+      if (!password || typeof password !== 'string' || password.length === 0) {
+        missingErrors.password = 'Password is required';
+      }
+      if (Object.keys(missingErrors).length > 0) {
+        logErrorContext('login.invalid_request', new Error('Missing credentials'), { missing: missingErrors });
+        sendSafeError(res, 'INVALID_REQUEST');
         return;
       }
 
-      const user = await this.userService.authenticateUser(loginData);
+      // Format validation
+      const validation = validateLogin({ email, password });
+      if (!validation.isValid) {
+        logErrorContext('login.validation_failed', new Error('Validation failed'), { errors: validation.errors });
+        sendSafeError(res, 'INVALID_REQUEST');
+        return;
+      }
+
+      const requestContext = {
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      };
+      const user = await this.userService.authenticateUser({ email, password }, requestContext);
       
       if (!user) {
-        res.status(401).json({ error: 'Invalid email or password' });
+        logErrorContext('login.invalid_credentials', 'Invalid email or password', { email: 'redacted' });
+        sendSafeError(res, 'INVALID_CREDENTIALS');
         return;
       }
 
-      res.json(user);
+      // Generate JWT token with minimal payload and secure options
+      try {
+        const auth = generateAccessToken({
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+        });
+
+        // Persist the authentication session (token, IP, User-Agent, expiration)
+        await this.userService.createUserSession(
+          user.id,
+          auth.token,
+          requestContext
+        );
+
+        // Compose response in requested format, excluding sensitive fields
+        const responsePayload = {
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            fullName: user.fullName,
+            role: String(user.role),
+            avatarType: String(user.avatarType),
+            profileImageUrl: user.profileImageUrl ?? null,
+          },
+          token: auth.token,
+          expiresIn: auth.expiresIn,
+          message: 'Inicio de sesión exitoso',
+        };
+
+        // Do not log the token
+        res.status(200).json(responsePayload);
+      } catch (err) {
+        if (err instanceof JWTConfigError) {
+          await respondWithSafeErrorAndAudit(res, 'INTERNAL_ERROR', {
+            action: AuditAction.failed_login,
+            entityType: 'user',
+            userId: user.id,
+            entityId: user.id,
+            ipAddress: requestContext.ipAddress,
+            userAgent: requestContext.userAgent,
+            errorKey: 'server_config_error',
+          }, { logTag: 'login.jwt_config_error', error: err });
+          return;
+        }
+        await respondWithSafeErrorAndAudit(res, 'INTERNAL_ERROR', {
+          action: AuditAction.failed_login,
+          entityType: 'user',
+          userId: user.id,
+          entityId: user.id,
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
+          errorKey: 'login_error',
+        }, { logTag: 'login.error', error: err });
+        return;
+      }
     } catch (error) {
-      console.error('Error during login:', error);
-      res.status(500).json({ error: 'Failed to authenticate user' });
+      // Handle temporary account lock explicitly
+      if (error instanceof Error && (error.message === 'ACCOUNT_LOCKED' || error.name === 'AccountLockedError')) {
+        logErrorContext('login.account_locked', error);
+        sendSafeError(res, 'ACCOUNT_BLOCKED');
+        return;
+      }
+      await respondWithSafeErrorAndAudit(res, 'INTERNAL_ERROR', {
+        action: AuditAction.failed_login,
+        entityType: 'user',
+        errorKey: 'login_exception',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      }, { logTag: 'login.exception', error });
     }
   }
 
@@ -252,7 +382,16 @@ export class UserController {
 
       res.json({ message: 'Password changed successfully' });
     } catch (error) {
-      console.error('Error changing password:', error);
+      const idParam = parseInt(req.params.id, 10);
+      logErrorContext('user.password_change.error', error, { id: idParam });
+      await logAuditError({
+        action: AuditAction.password_change,
+        entityType: 'user',
+        entityId: isNaN(idParam) ? undefined : idParam,
+        errorKey: 'password_change_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
       res.status(500).json({ error: 'Failed to change password' });
     }
   }
@@ -290,8 +429,17 @@ export class UserController {
         res.status(statusCode).json(response);
       }
     } catch (error) {
-      console.error('Error during registration:', error);
-      
+      const safeBody = req?.body as Partial<IRegisterUser> | undefined;
+      logErrorContext('user.register.error', error, { username: safeBody?.username, email: 'redacted' });
+      await logAuditError({
+        action: AuditAction.create,
+        entityType: 'user',
+        errorKey: 'register_user_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        newData: { username: safeBody?.username, email: safeBody?.email, fullName: safeBody?.fullName }
+      });
+
       const response: IRegistrationResponse = {
         success: false,
         message: 'Failed to register user',

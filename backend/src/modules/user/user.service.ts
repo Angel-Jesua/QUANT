@@ -1,7 +1,8 @@
 import { PrismaClient, UserRole, AvatarType, AuditAction } from '@prisma/client';
-import { ICreateUser, IUpdateUser, IUserResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse } from './user.types';
+import { ICreateUser, IUpdateUser, IUserResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse, IUserSession } from './user.types';
 import { hashPassword, comparePassword } from '../../utils/password';
 import { validateRegisterUser } from './user.validation';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
@@ -274,29 +275,138 @@ export class UserService {
   /**
    * Authenticate user with email and password
    */
-  async authenticateUser(loginData: ILoginUser): Promise<IUserResponse | null> {
+  async authenticateUser(
+    loginData: ILoginUser,
+    requestContext?: { ipAddress?: string; userAgent?: string }
+  ): Promise<IUserResponse | null> {
     try {
-      // Find user by email
-      const user = await prisma.userAccount.findUnique({
-        where: { email: loginData.email },
+      // Find active user by email
+      const user = await prisma.userAccount.findFirst({
+        where: { email: loginData.email, isActive: true },
       });
 
-      if (!user || !user.isActive) {
+      // Do not reveal whether the email exists; log failed attempt without userId
+      if (!user) {
+        try {
+          await prisma.userAuditLog.create({
+            data: {
+              action: AuditAction.failed_login,
+              entityType: 'user',
+              ipAddress: requestContext?.ipAddress,
+              userAgent: requestContext?.userAgent,
+              success: false,
+              errorMessage: 'user_not_found',
+              performedAt: new Date(),
+            },
+          });
+        } catch (auditError) {
+          console.error('Failed to log audit entry (user not found):', auditError);
+        }
         return null;
       }
 
-      // Compare passwords
+      // 1) Pre-lock verification: stop flow if currently locked
+      if (user.lockedUntil && user.lockedUntil > new Date()) {
+        // Log failed login due to account lock
+        try {
+          await prisma.userAuditLog.create({
+            data: {
+              userId: user.id,
+              action: AuditAction.failed_login,
+              entityType: 'user',
+              entityId: user.id,
+              ipAddress: requestContext?.ipAddress,
+              userAgent: requestContext?.userAgent,
+              success: false,
+              errorMessage: 'account_locked',
+              performedAt: new Date(),
+            },
+          });
+        } catch (auditError) {
+          console.error('Failed to log audit entry (account locked):', auditError);
+        }
+        const err = new Error('ACCOUNT_LOCKED');
+        err.name = 'AccountLockedError';
+        throw err;
+      }
+
+      // 2) Compare password using bcrypt (via comparePassword wrapper)
       const isPasswordValid = await comparePassword(loginData.password, user.passwordHash);
-      
+
       if (!isPasswordValid) {
+        // Increment attempts and possibly set a temporary lock atomically; also write audit log
+        const now = new Date();
+        const LOCK_THRESHOLD = 5;
+        const LOCK_DURATION_MS = 15 * 60 * 1000;
+
+        await prisma.$transaction(async (tx) => {
+          // Re-read attempts inside the transaction to prevent race conditions
+          const current = await tx.userAccount.findUnique({
+            where: { id: user.id },
+            select: { failedLoginAttempts: true, lockedUntil: true },
+          });
+
+          const currentAttempts = current?.failedLoginAttempts ?? 0;
+          const nextAttempts = currentAttempts + 1;
+
+          const updateData: any = { failedLoginAttempts: nextAttempts };
+          if (nextAttempts === LOCK_THRESHOLD) {
+            updateData.lockedUntil = new Date(now.getTime() + LOCK_DURATION_MS);
+          }
+
+          await tx.userAccount.update({
+            where: { id: user.id },
+            data: updateData,
+          });
+
+          await tx.userAuditLog.create({
+            data: {
+              userId: user.id,
+              action: AuditAction.failed_login,
+              entityType: 'user',
+              entityId: user.id,
+              ipAddress: requestContext?.ipAddress,
+              userAgent: requestContext?.userAgent,
+              success: false,
+              errorMessage: 'invalid_password',
+              performedAt: now,
+            },
+          });
+        });
+
+        // Signal invalid credentials without user enumeration
         return null;
       }
 
-      // Update last login
+      // 2b) On success: reset counters, clear lock and update lastLogin/lastActivity
+      const now = new Date();
       await prisma.userAccount.update({
         where: { id: user.id },
-        data: { lastLogin: new Date() },
+        data: {
+          lastLogin: now,
+          lastActivity: now,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
       });
+
+      // Log successful login
+      try {
+        await prisma.userAuditLog.create({
+          data: {
+            userId: user.id,
+            action: AuditAction.login,
+            entityType: 'user',
+            entityId: user.id,
+            ipAddress: requestContext?.ipAddress,
+            userAgent: requestContext?.userAgent,
+            success: true,
+            performedAt: now,
+          },
+        });
+      } catch (auditError) {
+        console.error('Failed to log audit entry (login):', auditError);
+      }
 
       // Return user data without sensitive information
       return {
@@ -310,12 +420,72 @@ export class UserService {
         updatedAt: user.updatedAt,
         profileImageUrl: user.profileImageUrl || undefined,
         avatarType: user.avatarType,
-        lastLogin: new Date(),
+        lastLogin: now,
       };
     } catch (error) {
+      // 3) Map account lock errors to controller (403)
+      if (error instanceof Error && (error.message === 'ACCOUNT_LOCKED' || error.name === 'AccountLockedError')) {
+        throw error;
+      }
       console.error('Error authenticating user:', error);
       return null;
     }
+  }
+
+  /**
+   * Create and persist a user authentication session
+   * Stores JWT token and context, computes expiresAt from token's exp claim
+   */
+  async createUserSession(
+    userId: number,
+    token: string,
+    requestContext?: { ipAddress?: string; userAgent?: string }
+  ): Promise<IUserSession> {
+    const now = new Date();
+
+    let expiresAt: Date = new Date(now.getTime());
+    try {
+      const decoded = jwt.decode(token) as { exp?: number } | null;
+      if (decoded && typeof decoded === 'object' && typeof decoded.exp === 'number') {
+        expiresAt = new Date(decoded.exp * 1000);
+      } else {
+        // Fallback: 1 hour from now if exp is unavailable
+        expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+      }
+    } catch {
+      // Fallback: 1 hour from now on decode error
+      expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+    }
+
+    const session = await prisma.userSession.create({
+      data: {
+        userId,
+        token,
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        isActive: true,
+        expiresAt,
+        lastActivity: now,
+      },
+      select: {
+        id: true,
+        userId: true,
+        token: true,
+        ipAddress: true,
+        userAgent: true,
+        isActive: true,
+        expiresAt: true,
+        lastActivity: true,
+        createdAt: true,
+      },
+    });
+
+    // Map nullable DB fields to optional properties to satisfy IUserSession
+    return {
+      ...session,
+      ipAddress: session.ipAddress ?? undefined,
+      userAgent: session.userAgent ?? undefined,
+    };
   }
 
   /**

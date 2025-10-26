@@ -103,3 +103,12 @@ export interface ICredentialUniquenessResult {
     email?: string;
   };
 }
+
+/**
+ * Authentication response returned on successful login
+ */
+export interface IAuthResponse {
+  token: string;
+  expiresIn: string;
+  user: IUserResponse;
+}

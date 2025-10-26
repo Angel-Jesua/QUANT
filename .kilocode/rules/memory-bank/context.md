@@ -23,11 +23,15 @@ Currently implementing the user authentication and management system for the QUA
     - Added specific error messages for duplicate usernames and emails
     - Updated controllers to handle uniqueness validation with proper HTTP status codes
     - Created comprehensive documentation and examples for the new functionality
+*   Implemented secure JWT generation and login integration
+    - Added utility at backend/src/utils/jwt.ts
+    - Minimal payload only (sub, email, username, role); email normalized to lowercase; HS256; expiresIn via env; optional issuer/audience; no sensitive data in payload/response
+    - Login endpoint returns token, tokenType Bearer, expiresIn, and basic user fields; token is never logged
 
 ## Next Steps
 
 The next steps will involve:
-1. Implementing the authentication services in the backend
+1. Complete backend authentication: add JWT verification middleware, protected routes, and token invalidation on logout/lock; define JWT_ISSUER and JWT_AUDIENCE
 2. Creating API endpoints for user management
 3. Building the frontend authentication components
 4. Implementing role-based access control (RBAC)

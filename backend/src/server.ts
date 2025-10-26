@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
-require('dotenv').config();
+const { PrismaClient, AuditAction } = require('@prisma/client');
 const { userRoutes } = require('./modules/user/user.routes');
+const { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext } = require('./utils/error');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -32,6 +33,23 @@ app.get('/users', async (req: any, res: any) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Global error handler to centralize safe error responses and audit logging
+app.use(async (err: any, req: any, res: any, next: any) => {
+  try {
+    logErrorContext('app.unhandled', err, { path: req.path, method: req.method });
+    await respondWithSafeErrorAndAudit(res, 'INTERNAL_ERROR', {
+      action: AuditAction.update,
+      entityType: 'server',
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      userAgent: req.get('User-Agent'),
+      errorKey: 'unhandled_exception',
+    });
+  } catch (handlerError) {
+    console.error('Error in global error handler:', handlerError);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
