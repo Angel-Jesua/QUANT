@@ -36,29 +36,51 @@ export class LoginComponent {
   }
 
   onSubmit(): void {
+    // Marcar todos los campos como tocados para mostrar errores de validación
+    Object.keys(this.loginForm.controls).forEach(key => {
+      this.loginForm.get(key)?.markAsTouched();
+    });
+
     if (this.loginForm.valid) {
       this.isLoading = true;
       this.errorMessage = '';
 
       const credentials = {
-        ...this.loginForm.value
+        email: this.loginForm.value.usernameOrEmail.trim().toLowerCase(),
+        password: this.loginForm.value.password,
+        rememberMe: this.loginForm.value.rememberMe
       };
 
       this.authService.login(credentials).subscribe({
         next: (response) => {
           this.isLoading = false;
-          if (response.success) {
-            console.log('Login successful');
-            this.router.navigate(['/']);
+          if (response.success && response.token) {
+            // Navegar a la página principal después de un inicio de sesión exitoso
+            this.router.navigate(['/dashboard']);
           } else {
-            this.errorMessage = response.message || 'Login failed';
+            // Manejar respuesta inesperada del servidor
+            this.errorMessage = response.message || 'Error inesperado al iniciar sesión';
           }
         },
         error: (error) => {
           this.isLoading = false;
-          this.errorMessage = error.message || 'Login failed';
+          // El mensaje de error ya está formateado en el servicio
+          this.errorMessage = error.message;
+          
+          // Enfocar el campo de contraseña en caso de error
+          const passwordField = document.getElementById('password');
+          if (passwordField) {
+            setTimeout(() => passwordField.focus(), 100);
+          }
         }
       });
+    } else {
+      // Mostrar mensaje de validación si el formulario no es válido
+      if (this.loginForm.get('usernameOrEmail')?.errors?.['required']) {
+        this.errorMessage = 'Por favor ingresa tu correo electrónico';
+      } else if (this.loginForm.get('password')?.errors?.['required']) {
+        this.errorMessage = 'Por favor ingresa tu contraseña';
+      }
     }
   }
 }

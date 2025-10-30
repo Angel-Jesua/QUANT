@@ -290,6 +290,7 @@ export class UserController {
 
         // Compose response in requested format, excluding sensitive fields
         const responsePayload = {
+          success: true,
           user: {
             id: user.id,
             username: user.username,

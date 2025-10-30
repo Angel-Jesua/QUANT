@@ -3,12 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const { PrismaClient, AuditAction } = require('@prisma/client');
 const { userRoutes } = require('./modules/user/user.routes');
+const { authRoutes } = require('./modules/auth/auth.routes');
 const { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext } = require('./utils/error');
 
 const app = express();
 const prisma = new PrismaClient();
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -24,6 +25,7 @@ app.get('/', (req: any, res: any) => {
 
 // API routes
 app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes);
 
 // Example API endpoint using Prisma (kept for reference)
 app.get('/users', async (req: any, res: any) => {
