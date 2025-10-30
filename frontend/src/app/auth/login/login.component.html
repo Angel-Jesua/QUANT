@@ -1,0 +1,75 @@
+<div class="login-page">
+  <div class="login-content">
+    <div class="login-card card">
+      <div class="logo-section">
+        <h1 class="system-title text-primary">QUANT Accounting System</h1>
+        <p class="system-subtitle text-secondary">Acceso para IURUS CONSULTUS</p>
+      </div>
+      
+      <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="form-group">
+          <label for="usernameOrEmail" class="text-primary">Usuario o Email</label>
+          <input
+            type="text"
+            id="usernameOrEmail"
+            formControlName="usernameOrEmail"
+            placeholder="Ingresa tu usuario o email"
+            class="form-input"
+            [class.error]="loginForm.get('usernameOrEmail')?.touched && loginForm.get('usernameOrEmail')?.invalid">
+          <div class="error-message" *ngIf="loginForm.get('usernameOrEmail')?.touched && loginForm.get('usernameOrEmail')?.hasError('required')">
+            Este campo es obligatorio
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="password" class="text-primary">Contraseña</label>
+          <div class="password-input-container">
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              id="password"
+              formControlName="password"
+              placeholder="Ingresa tu contraseña"
+              class="form-input"
+              [class.error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid">
+            <button
+              type="button"
+              class="password-toggle"
+              (click)="togglePasswordVisibility()"
+              tabindex="-1">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+              <path *ngIf="!showPassword" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 15a3 3 0 1 1 0-6 3 3 0 0 1 6 0 3 3 0 0-6a3 3 0 0 1 6 0z"></path>
+              <circle *ngIf="!showPassword" cx="12" cy="12" r="3"></circle>
+              <path *ngIf="showPassword" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line *ngIf="showPassword" x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+            </button>
+          </div>
+          <div class="error-message" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">
+              Este campo es obligatorio
+            </div>
+        </div>
+        
+        <div class="error-container" *ngIf="errorMessage">
+          {{ errorMessage }}
+        </div>
+
+        <button type="submit" class="btn-login btn-primary" [disabled]="loginForm.invalid || isLoading">
+          <div class="button-content" [class.hidden]="isLoading">
+            Ingresar
+          </div>
+          <div class="loading-content" [class.hidden]="!isLoading">
+            <div class="spinner"></div>
+          </div>
+        </button>
+        
+        <div class="login-actions">
+          <div class="remember-me">
+            <input type="checkbox" id="rememberMe" formControlName="rememberMe">
+            <label for="rememberMe">Recordarme</label>
+          </div>
+          <a routerLink="/auth/recover" class="forgot-password link-primary">¿Olvidaste tu contraseña?</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

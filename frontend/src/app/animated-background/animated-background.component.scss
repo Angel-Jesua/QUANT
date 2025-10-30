@@ -1,0 +1,116 @@
+.animated-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background-color: #F5F7FA;
+  overflow: hidden;
+}
+
+.bg-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  animation: floatUp linear infinite;
+  opacity: 0;
+
+  &.circle-1 {
+    width: 60px;
+    height: 60px;
+    background-color: #109BF1;
+    left: 10%;
+    animation-duration: 30s;
+    animation-delay: 0s;
+  }
+
+  &.circle-2 {
+    width: 40px;
+    height: 40px;
+    background-color: #383E80;
+    left: 25%;
+    animation-duration: 28s;
+    animation-delay: 2s;
+  }
+
+  &.square-1 {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background-color: #109BF1;
+    left: 50%;
+    animation-duration: 32s;
+    animation-delay: 4s;
+  }
+
+  &.circle-3 {
+    width: 70px;
+    height: 70px;
+    background-color: #383E80;
+    left: 65%;
+    animation-duration: 29s;
+    animation-delay: 6s;
+  }
+
+  &.square-2 {
+    width: 25px;
+    height: 25px;
+    border-radius: 6px;
+    background-color: #109BF1;
+    left: 80%;
+    animation-duration: 31s;
+    animation-delay: 8s;
+  }
+
+  &.circle-4 {
+    width: 80px;
+    height: 80px;
+    background-color: #383E80;
+    left: 35%;
+    animation-duration: 27s;
+    animation-delay: 10s;
+  }
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.08;
+  }
+  80% {
+    opacity: 0.08;
+  }
+  100% {
+    transform: translateY(-10vh);
+    opacity: 0;
+  }
+}
+
+// Additional shapes for more visual interest
+.shape:nth-child(n+7) {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .shape {
+    &.circle-1, &.circle-2, &.circle-3, &.circle-4,
+    &.square-1, &.square-2 {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
