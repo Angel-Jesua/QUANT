@@ -220,7 +220,11 @@ export class UserService {
   /**
    * Update user
    */
-  async updateUser(id: number, userData: IUpdateUser): Promise<IUserResponse | null> {
+  async updateUser(
+    id: number,
+    userData: IUpdateUser,
+    requestContext?: { ipAddress?: string; userAgent?: string; userId?: number }
+  ): Promise<IUserResponse | null> {
     // Check credential uniqueness if username or email is being updated
     if (userData.username || userData.email) {
       const uniquenessCheck = await this.checkCredentialUniqueness(
@@ -237,7 +241,10 @@ export class UserService {
     
     const user = await prisma.userAccount.update({
       where: { id },
-      data: userData,
+      data: {
+        ...userData,
+        ...(requestContext?.userId && { updatedById: requestContext.userId }),
+      },
       select: {
         id: true,
         username: true,
@@ -263,12 +270,18 @@ export class UserService {
   /**
    * Delete user (soft delete by setting isActive to false)
    */
-  async deleteUser(id: number): Promise<boolean> {
+  async deleteUser(
+    id: number,
+    requestContext?: { ipAddress?: string; userAgent?: string; userId?: number }
+  ): Promise<boolean> {
     await prisma.userAccount.update({
       where: { id },
-      data: { isActive: false },
+      data: {
+        isActive: false,
+        ...(requestContext?.userId && { updatedById: requestContext.userId }),
+      },
     });
-
+ 
     return true;
   }
 

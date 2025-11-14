@@ -20,6 +20,15 @@ jest.mock('./user.service', () => ({
   UserService: jest.fn().mockImplementation(() => mockUserService),
 }));
 
+// Bypass JWT auth for protected /api/users routes during endpoint tests
+jest.mock('../../middleware/auth.middleware', () => ({
+  authenticateJWT: (req: any, _res: any, next: any) => {
+    req.userId = 1;
+    req.user = { id: 1, email: 'endpoint@test', username: 'endpoint', role: 'accountant' };
+    next();
+  },
+}));
+
 import { userRoutes } from './user.routes';
 
 function buildTestApp() {
@@ -101,7 +110,7 @@ describe('User Endpoints - POST integration via router', () => {
         expect.objectContaining({
           ipAddress: expect.any(String),
           userAgent: 'endpoint-test-agent',
-          userId: undefined,
+          userId: expect.any(Number),
         })
       );
     });

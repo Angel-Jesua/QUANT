@@ -22,6 +22,14 @@ const mockUserService = {
 jest.mock('./user.service', () => ({
     UserService: jest.fn().mockImplementation(() => mockUserService),
 }));
+// Bypass JWT auth for protected /api/users routes during endpoint tests
+jest.mock('../../middleware/auth.middleware', () => ({
+    authenticateJWT: (req, _res, next) => {
+        req.userId = 1;
+        req.user = { id: 1, email: 'endpoint@test', username: 'endpoint', role: 'accountant' };
+        next();
+    },
+}));
 const user_routes_1 = require("./user.routes");
 function buildTestApp() {
     const app = (0, express_1.default)();
@@ -88,7 +96,7 @@ describe('User Endpoints - POST integration via router', () => {
             expect(mockUserService.createUser).toHaveBeenCalledWith(validUserData, expect.objectContaining({
                 ipAddress: expect.any(String),
                 userAgent: 'endpoint-test-agent',
-                userId: undefined,
+                userId: expect.any(Number),
             }));
         });
         it('returns 400 with validation errors for invalid payload', async () => {

@@ -151,7 +151,12 @@ class UserController {
                     return;
                 }
             }
-            const user = await this.userService.updateUser(userId, userData);
+            const requestContext = {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+                userId: req.userId ?? req.user?.id
+            };
+            const user = await this.userService.updateUser(userId, userData, requestContext);
             if (!user) {
                 res.status(404).json({ error: 'User not found' });
                 return;
@@ -183,7 +188,12 @@ class UserController {
                 res.status(400).json({ error: 'Invalid user ID' });
                 return;
             }
-            await this.userService.deleteUser(userId);
+            const requestContext = {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+                userId: req.userId ?? req.user?.id
+            };
+            await this.userService.deleteUser(userId, requestContext);
             res.status(204).send();
         }
         catch (error) {

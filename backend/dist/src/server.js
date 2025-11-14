@@ -5,6 +5,8 @@ const cors = require('cors');
 const { PrismaClient, AuditAction } = require('@prisma/client');
 const { userRoutes } = require('./modules/user/user.routes');
 const { authRoutes } = require('./modules/auth/auth.routes');
+const { currencyRoutes } = require('./modules/currency/currency.routes');
+const { clientRoutes } = require('./modules/client/client.routes');
 const { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext } = require('./utils/error');
 const app = express();
 const prisma = new PrismaClient();
@@ -22,6 +24,8 @@ app.get('/', (req, res) => {
 // API routes
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/currencies', currencyRoutes);
+app.use('/api/clients', clientRoutes);
 // Example API endpoint using Prisma (kept for reference)
 app.get('/users', async (req, res) => {
     try {

@@ -74,6 +74,47 @@ backend/src/modules/user/
 * **Password Utility**: Password hashing and strength validation
 * **Error Handling**: Centralized error management with audit logging
 
+### Route Map
+
+- /api/auth/login → [`UserController.login`](backend/src/modules/user/user.controller.ts)
+  - Registered in [`auth.routes.ts`](backend/src/modules/auth/auth.routes.ts:8)
+- /api/auth/register → [`UserController.register`](backend/src/modules/user/user.controller.ts)
+  - Registered in [`auth.routes.ts`](backend/src/modules/auth/auth.routes.ts:9)
+- /api/users → User management endpoints
+  - Mounted in [`server.ts`](backend/src/server.ts:28), defined in [`user.routes.ts`](backend/src/modules/user/user.routes.ts)
+- /api/currencies → Currency CRUD endpoints (GET/POST/PUT/DELETE)
+  - Mounted in [`server.ts`](backend/src/server.ts:30), defined in [`currency.routes.ts`](backend/src/modules/currency/currency.routes.ts)
+
+### Domain Models Highlight
+
+- Enums:
+  - [`AuditAction`](backend/prisma/schema.prisma:28)
+  - [`AccountType`](backend/prisma/schema.prisma:41)
+- Auth and Auditing:
+  - [`UserAccount`](backend/prisma/schema.prisma:54)
+  - [`UserSession`](backend/prisma/schema.prisma:112)
+  - [`UserAuditLog`](backend/prisma/schema.prisma:153)
+  - [`RolePermission`](backend/prisma/schema.prisma:133)
+- Accounting Domain:
+  - [`Currency`](backend/prisma/schema.prisma:178)
+  - [`Client`](backend/prisma/schema.prisma:208)
+  - [`Account`](backend/prisma/schema.prisma:246)
+
+### Module Interaction Diagram
+
+```mermaid
+graph TD
+    FE[Angular AuthService] -->|HTTP to /api| R[Express Routes]
+    AR[Auth Routes] -->|api auth login register| C[UserController]
+    UR[User Routes] -->|api users| C
+    R --> AR
+    R --> UR
+    C --> S[UserService]
+    S --> P[Prisma Client]
+    P --> DB[PostgreSQL]
+    G[Global Error Handler] --- C
+```
+
 ## Database Schema
 
 The database schema is designed with a comprehensive user authentication and management system:
@@ -99,6 +140,7 @@ The database schema is designed with a comprehensive user authentication and man
 *   **Database Migrations**: `backend/prisma/migrations/`
 *   **Backend Server**: `backend/src/server.ts`
 *   **User Module**: `backend/src/modules/user/`
+*   **Currency Module**: `backend/src/modules/currency/`
 *   **JWT Utility**: `backend/src/utils/jwt.ts`
 *   **Password Utility**: `backend/src/utils/password.ts`
 *   **Error Handling**: `backend/src/utils/error.ts`

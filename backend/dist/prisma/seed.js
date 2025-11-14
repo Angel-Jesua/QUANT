@@ -130,6 +130,104 @@ async function main() {
         });
     }
     console.log('✅ Role permissions created for modules:', modules);
+    // Seed base currency USD
+    const usd = await prisma.currency.upsert({
+        where: { code: 'USD' },
+        update: {
+            isBaseCurrency: true,
+            exchangeRate: new client_1.Prisma.Decimal('1.000000'),
+            updatedById: admin.id,
+        },
+        create: {
+            code: 'USD',
+            name: 'US Dollar',
+            symbol: '$',
+            decimalPlaces: 2,
+            isBaseCurrency: true,
+            exchangeRate: new client_1.Prisma.Decimal('1.000000'),
+            isActive: true,
+            createdById: admin.id,
+        },
+    });
+    console.log('✅ Base currency created:', { id: usd.id, code: usd.code, symbol: usd.symbol });
+    // Seed example clients
+    const clientsData = [
+        { clientCode: 'CUST-001', taxId: 'RUC001', name: 'Cliente Alfa', email: 'alfa@example.com', phone: '505-555-0001', address: 'Managua', city: 'Managua' },
+        { clientCode: 'CUST-002', taxId: 'RUC002', name: 'Cliente Beta', email: 'beta@example.com', phone: '505-555-0002', address: 'León', city: 'León' },
+        { clientCode: 'CUST-003', taxId: 'RUC003', name: 'Cliente Gamma', email: 'gamma@example.com', phone: '505-555-0003', address: 'Granada', city: 'Granada' },
+    ];
+    const clientResults = [];
+    for (const c of clientsData) {
+        const client = await prisma.client.upsert({
+            where: { clientCode: c.clientCode },
+            update: {
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                address: c.address,
+                city: c.city,
+                currencyId: usd.id,
+                isActive: true,
+                updatedById: admin.id,
+            },
+            create: {
+                clientCode: c.clientCode,
+                taxId: c.taxId,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                address: c.address,
+                city: c.city,
+                currencyId: usd.id,
+                isActive: true,
+                createdById: admin.id,
+            },
+        });
+        clientResults.push(client);
+    }
+    console.log(`✅ Clients upserted: ${clientResults.length}`);
+    const accountsSeed = [
+        { accountNumber: '1000', name: 'Activo', type: client_1.AccountType.Activo, isDetail: false },
+        { accountNumber: '1100', name: 'Caja y Bancos', type: client_1.AccountType.Activo, parent: '1000', isDetail: false },
+        { accountNumber: '1101', name: 'Caja General', type: client_1.AccountType.Activo, parent: '1100', isDetail: true },
+        { accountNumber: '1200', name: 'Cuentas por Cobrar', type: client_1.AccountType.Activo, parent: '1000', isDetail: false },
+        { accountNumber: '1201', name: 'Clientes Nacionales', type: client_1.AccountType.Activo, parent: '1200', isDetail: true },
+        { accountNumber: '4000', name: 'Ingresos', type: client_1.AccountType.Ingresos, isDetail: false },
+        { accountNumber: '4100', name: 'Ventas', type: client_1.AccountType.Ingresos, parent: '4000', isDetail: true },
+        { accountNumber: '5000', name: 'Gastos', type: client_1.AccountType.Gastos, isDetail: false },
+        { accountNumber: '5100', name: 'Gastos Operativos', type: client_1.AccountType.Gastos, parent: '5000', isDetail: false },
+        { accountNumber: '5101', name: 'Gastos de Oficina', type: client_1.AccountType.Gastos, parent: '5100', isDetail: true },
+    ];
+    const accountIdByNumber = new Map();
+    let accountsUpserted = 0;
+    for (const a of accountsSeed) {
+        const parentId = a.parent ? accountIdByNumber.get(a.parent) ?? null : null;
+        const acc = await prisma.account.upsert({
+            where: { accountNumber: a.accountNumber },
+            update: {
+                name: a.name,
+                type: a.type,
+                isDetail: a.isDetail,
+                parentAccountId: parentId,
+                currencyId: usd.id,
+                isActive: true,
+                updatedById: admin.id,
+            },
+            create: {
+                accountNumber: a.accountNumber,
+                name: a.name,
+                type: a.type,
+                currencyId: usd.id,
+                parentAccountId: parentId,
+                isDetail: a.isDetail,
+                isActive: true,
+                createdById: admin.id,
+            },
+        });
+        accountIdByNumber.set(a.accountNumber, acc.id);
+        accountsUpserted++;
+    }
+    console.log(`✅ Accounts upserted: ${accountsUpserted}`);
     console.log('\n📝 CREDENTIALS FOR LOGIN:');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('Administrator:');

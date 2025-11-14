@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
 }
 
 datasource db {
@@ -38,6 +38,15 @@ enum AuditAction {
   @@map("audit_action")
 }
 
+enum AccountType {
+  Activo
+  Pasivo
+  Capital
+  Costos
+  Ingresos
+  Gastos
+}
+
 // ================================
 // MODELS (mapped to snake_case tables/columns)
 // ================================
@@ -63,8 +72,8 @@ model UserAccount {
   mustChangePassword  Boolean   @default(false) @map("must_change_password")
   googleId            String?   @unique @map("google_id")
   facebookId          String?   @unique @map("facebook_id")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamp
   createdById         Int?      @map("created_by")
   updatedById         Int?      @map("updated_by")
 
@@ -76,6 +85,12 @@ model UserAccount {
   sessions            UserSession[]
   createdPermissions  RolePermission[] @relation("PermissionCreator")
   auditLogs           UserAuditLog[]
+  createdClients      Client[]      @relation("ClientCreatedBy")
+  updatedClients      Client[]      @relation("ClientUpdatedBy")
+  createdAccounts     Account[]     @relation("AccountCreatedBy")
+  updatedAccounts     Account[]     @relation("AccountUpdatedBy")
+  createdCurrencies   Currency[]    @relation("CurrencyCreatedBy")
+  updatedCurrencies   Currency[]    @relation("CurrencyUpdatedBy")
 
   // References to creator/updater
   createdBy           UserAccount? @relation("CreatedByEntries", fields: [createdById], references: [id], onDelete: SetNull)
@@ -103,7 +118,7 @@ model UserSession {
   isActive     Boolean  @default(true) @map("is_active")
   expiresAt    DateTime @map("expires_at")
   lastActivity DateTime @default(now()) @map("last_activity")
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
 
   user         UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -123,7 +138,7 @@ model RolePermission {
   canCreate   Boolean   @default(false) @map("can_create")
   canUpdate   Boolean   @default(false) @map("can_update")
   canDelete   Boolean   @default(false) @map("can_delete")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp
   createdById Int?      @map("created_by")
 
   createdBy   UserAccount? @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -147,7 +162,7 @@ model UserAuditLog {
   userAgent   String?   @map("user_agent") @db.Text
   success     Boolean   @default(true) @map("success")
   errorMessage String?  @map("error_message") @db.Text
-  performedAt DateTime  @default(now()) @map("performed_at")
+  performedAt DateTime  @default(now()) @map("performed_at") @db.Timestamp
 
   user        UserAccount? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -158,4 +173,107 @@ model UserAuditLog {
   @@index([userId, performedAt])
 
   @@map("user_audit_log")
+}
+
+model Currency {
+  id             Int        @id @default(autoincrement()) @map("id")
+  code           String     @unique @map("code") @db.VarChar(3)
+  name           String     @map("name") @db.VarChar(100)
+  symbol         String     @map("symbol") @db.VarChar(10)
+  decimalPlaces  Int        @default(2) @map("decimal_places")
+  isBaseCurrency Boolean    @default(false) @map("is_base_currency")
+  exchangeRate   Decimal    @default(1.00) @map("exchange_rate") @db.Decimal(precision: 18, scale: 6)
+  isActive       Boolean    @default(true) @map("is_active")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamp
+  createdById    Int        @map("created_by")
+  updatedById    Int?       @map("updated_by")
+
+  // Relaciones
+  clients        Client[]    @relation("ClientCurrency")
+  accounts       Account[]   @relation("AccountCurrency")
+  createdBy      UserAccount @relation("CurrencyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      UserAccount? @relation("CurrencyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Restricciones
+  @@index([code])
+  @@index([isBaseCurrency])
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
+
+  @@map("currency")
+}
+
+model Client {
+  id             Int         @id @default(autoincrement()) @map("id")
+  clientCode     String      @unique @map("client_code") @db.VarChar(20)
+  taxId          String?     @unique @map("tax_id") @db.VarChar(20)
+  name           String      @map("name") @db.VarChar(255)
+  contactName    String?     @map("contact_name") @db.VarChar(255)
+  email          String?     @map("email") @db.VarChar(255)
+  phone          String?     @map("phone") @db.VarChar(50)
+  address        String?     @map("address") @db.Text
+  city           String?     @map("city") @db.VarChar(100)
+  state          String?     @map("state") @db.VarChar(100)
+  country        String      @default("Nicaragua") @map("country") @db.VarChar(100)
+  postalCode     String?     @map("postal_code") @db.VarChar(20)
+  creditLimit    Decimal     @default(0.00) @map("credit_limit") @db.Decimal(precision: 18, scale: 2)
+  currencyId     Int         @map("currency_id")
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamp
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamp
+  createdById    Int         @map("created_by")
+  updatedById    Int?        @map("updated_by")
+
+  // Relaciones
+  currency       Currency    @relation("ClientCurrency", fields: [currencyId], references: [id])
+  createdBy      UserAccount @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      UserAccount? @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Índices y unicidad
+  @@index([clientCode])
+  @@index([taxId])
+  @@index([currencyId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([isActive])
+  @@index([country])
+
+  @@map("client")
+}
+
+model Account {
+  id              Int         @id @default(autoincrement()) @map("id")
+  accountNumber   String      @unique @map("account_number") @db.VarChar(20)
+  name            String      @map("name") @db.VarChar(255)
+  description     String?     @map("description") @db.Text
+  type            AccountType @map("type")
+  currencyId      Int         @map("currency_id")
+  parentAccountId Int?        @map("parent_account_id")
+  isDetail        Boolean     @default(true) @map("is_detail")
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamp
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamp
+  createdById     Int         @map("created_by")
+  updatedById     Int?        @map("updated_by")
+
+  // Relaciones
+  currency        Currency    @relation("AccountCurrency", fields: [currencyId], references: [id])
+  parentAccount   Account?    @relation("AccountParent", fields: [parentAccountId], references: [id])
+  childAccounts   Account[]   @relation("AccountParent")
+  createdBy       UserAccount @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       UserAccount? @relation("AccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Restricciones
+  @@index([accountNumber])
+  @@index([type])
+  @@index([currencyId])
+  @@index([parentAccountId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([isDetail])
+  @@index([isActive])
+
+  @@map("account")
 }
