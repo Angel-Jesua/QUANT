@@ -1,0 +1,23 @@
+<aside class="sidebar">
+  <div class="user-profile">
+    <div class="avatar-container">
+      <img [src]="userAvatarUrl" [alt]="userName" class="user-avatar">
+    </div>
+    <div class="user-info">
+      <p class="user-greeting">{{ userGreeting }}</p>
+      <p class="user-name">{{ userName }}</p>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a
+      *ngFor="let item of menuItems"
+      [routerLink]="item.route"
+      routerLinkActive="active"
+      class="nav-item"
+      [class.active]="item.isActive">
+      <span class="nav-icon" [attr.data-icon]="item.icon"></span>
+      <span class="nav-label">{{ item.label }}</span>
+    </a>
+  </nav>
+</aside>

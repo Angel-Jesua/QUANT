@@ -1,0 +1,106 @@
+.dashboard-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background-color: #F6FBFF;
+  font-family: 'Poppins', -apple-system, Roboto, Helvetica, sans-serif;
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 255px;
+  padding: 40px 30px 20px;
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  margin-bottom: 46px;
+}
+
+.company-title {
+  color: #03055E;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+  text-align: center;
+  margin: 0;
+}
+
+.dashboard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 54px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 41px;
+}
+
+.dashboard-footer {
+  margin-top: 44px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.footer-text {
+  color: #03055E;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.57;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+@media (max-width: 1400px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-main {
+    margin-left: 0;
+    padding: 20px 15px;
+  }
+
+  .company-title {
+    font-size: 32px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .dashboard-content {
+    gap: 30px;
+  }
+}
+
+@media (max-width: 768px) {
+  .company-title {
+    font-size: 24px;
+  }
+
+  .dashboard-main {
+    padding: 15px 10px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .dashboard-content {
+    gap: 20px;
+  }
+
+  .dashboard-footer {
+    margin-top: 20px;
+  }
+}

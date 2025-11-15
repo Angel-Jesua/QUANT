@@ -1,0 +1,31 @@
+<div class="dashboard-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="dashboard-main">
+    <header class="dashboard-header">
+      <h1 class="company-title">IURIS CONSULTUS S.A</h1>
+    </header>
+
+    <section class="dashboard-content">
+      <div class="metrics-grid">
+        <app-metric-card
+          [title]="monthlyIncome.title"
+          [value]="monthlyIncome.value"
+          [chartColor]="monthlyIncome.chartColor">
+        </app-metric-card>
+
+        <app-metric-card
+          [title]="monthlyExpense.title"
+          [value]="monthlyExpense.value"
+          [chartColor]="monthlyExpense.chartColor">
+        </app-metric-card>
+      </div>
+
+      <app-income-expense-chart [data]="chartData"></app-income-expense-chart>
+    </section>
+
+    <footer class="dashboard-footer">
+      <p class="footer-text">© 2025 Sistema Contable</p>
+    </footer>
+  </main>
+</div>

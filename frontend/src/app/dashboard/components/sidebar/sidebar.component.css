@@ -1,0 +1,146 @@
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 255px;
+  height: 100vh;
+  background-color: #FFFFFF;
+  border-right: 1px solid #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  padding: 25px 28px;
+  z-index: 100;
+}
+
+.user-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 90px;
+}
+
+.avatar-container {
+  width: 209px;
+  height: 220px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 19px;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-info {
+  text-align: center;
+}
+
+.user-greeting {
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.142px;
+  margin: 0 0 4px 0;
+}
+
+.user-name {
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.142px;
+  margin: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  padding: 11px;
+  border-radius: 5px;
+  background-color: #FFFFFF;
+  border: 1px solid #FFFFFF;
+  text-decoration: none;
+  color: #03055E;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.57;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background-color: #f8f9fa;
+}
+
+.nav-item.active {
+  background-color: #03055E;
+  color: #FFFFFF;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+.nav-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-icon::before {
+  content: '';
+  width: 25px;
+  height: 25px;
+  display: block;
+}
+
+.nav-item[data-icon="chart"] .nav-icon::before {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.6625 0H18.3363C22.5875 0 24.9875 2.41125 25 6.6625V18.3375C25 22.5875 22.5875 25 18.3363 25H6.6625C2.41125 25 0 22.5875 0 18.3375V6.6625C0 2.41125 2.41125 0 6.6625 0ZM12.5613 19.825C13.1001 19.825 13.5488 19.425 13.5988 18.8875V6.15C13.6488 5.7625 13.4626 5.37375 13.1251 5.1625C12.7738 4.95 12.3488 4.95 12.0126 5.1625C11.6738 5.37375 11.4876 5.7625 11.5238 6.15V18.8875C11.5876 19.425 12.0363 19.825 12.5613 19.825ZM18.3126 19.825C18.8376 19.825 19.2863 19.425 19.3501 18.8875V14.7875C19.3863 14.3863 19.2001 14.0125 18.8613 13.8C18.5251 13.5875 18.1001 13.5875 17.7501 13.8C17.4113 14.0125 17.2251 14.3863 17.2751 14.7875V18.8875C17.3251 19.425 17.7738 19.825 18.3126 19.825ZM7.77379 18.8875C7.72379 19.425 7.27504 19.825 6.73629 19.825C6.19879 19.825 5.74879 19.425 5.70004 18.8875V10.25C5.66254 9.86125 5.84879 9.475 6.18754 9.2625C6.52379 9.05 6.95004 9.05 7.28754 9.2625C7.62379 9.475 7.81254 9.86125 7.77379 10.25V18.8875Z" fill="%2303055E"/></svg>') center/contain no-repeat;
+}
+
+.nav-item.active[data-icon="chart"] .nav-icon::before {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.6625 0H18.3363C22.5875 0 24.9875 2.41125 25 6.6625V18.3375C25 22.5875 22.5875 25 18.3363 25H6.6625C2.41125 25 0 22.5875 0 18.3375V6.6625C0 2.41125 2.41125 0 6.6625 0ZM12.5613 19.825C13.1001 19.825 13.5488 19.425 13.5988 18.8875V6.15C13.6488 5.7625 13.4626 5.37375 13.1251 5.1625C12.7738 4.95 12.3488 4.95 12.0126 5.1625C11.6738 5.37375 11.4876 5.7625 11.5238 6.15V18.8875C11.5876 19.425 12.0363 19.825 12.5613 19.825ZM18.3126 19.825C18.8376 19.825 19.2863 19.425 19.3501 18.8875V14.7875C19.3863 14.3863 19.2001 14.0125 18.8613 13.8C18.5251 13.5875 18.1001 13.5875 17.7501 13.8C17.4113 14.0125 17.2251 14.3863 17.2751 14.7875V18.8875C17.3251 19.425 17.7738 19.825 18.3126 19.825ZM7.77379 18.8875C7.72379 19.425 7.27504 19.825 6.73629 19.825C6.19879 19.825 5.74879 19.425 5.70004 18.8875V10.25C5.66254 9.86125 5.84879 9.475 6.18754 9.2625C6.52379 9.05 6.95004 9.05 7.28754 9.2625C7.62379 9.475 7.81254 9.86125 7.77379 10.25V18.8875Z" fill="%23FFFFFF"/></svg>') center/contain no-repeat;
+}
+
+.nav-label {
+  flex: 1;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+  }
+
+  .user-profile {
+    margin-bottom: 40px;
+  }
+
+  .avatar-container {
+    width: 150px;
+    height: 150px;
+  }
+}
