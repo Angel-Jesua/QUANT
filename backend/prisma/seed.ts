@@ -3,6 +3,10 @@ import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+const PROFILE_IMAGE_FOLDER = 'images';
+const DEFAULT_PROFILE_IMAGE = `${PROFILE_IMAGE_FOLDER}/default-avatar.svg`;
+const ACCOUNTANT_PROFILE_IMAGE = `${PROFILE_IMAGE_FOLDER}/woman.png`;
+
 async function main() {
   console.log('🌱 Starting database seed...')
 
@@ -16,7 +20,10 @@ async function main() {
   // Create administrator user
   const admin = await prisma.userAccount.upsert({
     where: { email: 'admin@quant.com' },
-    update: {},
+    update: {
+      profileImageUrl: DEFAULT_PROFILE_IMAGE,
+      avatarType: AvatarType.generated,
+    },
     create: {
       username: 'admin',
       email: 'admin@quant.com',
@@ -24,6 +31,7 @@ async function main() {
       fullName: 'Administrator',
       role: UserRole.administrator,
       avatarType: AvatarType.generated,
+       profileImageUrl: DEFAULT_PROFILE_IMAGE,
       photoRequested: true,
       isActive: true,
       passwordChangedAt: new Date(),
@@ -39,14 +47,18 @@ async function main() {
   // Create accountant user
   const accountant = await prisma.userAccount.upsert({
     where: { email: 'accountant@quant.com' },
-    update: {},
+    update: {
+      profileImageUrl: ACCOUNTANT_PROFILE_IMAGE,
+      avatarType: AvatarType.uploaded,
+    },
     create: {
       username: 'accountant',
       email: 'accountant@quant.com',
       passwordHash: accountantPasswordHash,
       fullName: 'Accountant User',
       role: UserRole.accountant,
-      avatarType: AvatarType.generated,
+      avatarType: AvatarType.uploaded,
+      profileImageUrl: ACCOUNTANT_PROFILE_IMAGE,
       photoRequested: true,
       isActive: true,
       passwordChangedAt: new Date(),

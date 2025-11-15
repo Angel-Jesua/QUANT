@@ -1,22 +1,49 @@
 <aside class="sidebar">
-  <div class="user-profile">
-    <div class="avatar-container">
-      <img [src]="userAvatarUrl" [alt]="userName" class="user-avatar">
+  <ng-container *ngIf="user$ | async as user; else profilePlaceholder">
+    <div class="user-profile" [attr.data-status]="user.profileImageStatus">
+      <div class="avatar-container" [class.empty]="!user.resolvedImageUrl">
+        <ng-container *ngIf="user.resolvedImageUrl; else emptyAvatar">
+          <img
+            class="user-avatar"
+            [src]="user.resolvedImageUrl"
+            [alt]="user.fullName"
+            [attr.data-status]="user.profileImageStatus"
+            (error)="onAvatarError($event, user)" />
+        </ng-container>
+      </div>
+      <div class="user-info">
+        <p class="user-greeting">{{ greetingLabel }}</p>
+        <p class="user-name">{{ user.fullName }}</p>
+        <p class="user-meta">{{ user.email }}</p>
+      </div>
     </div>
-    <div class="user-info">
-      <p class="user-greeting">{{ userGreeting }}</p>
-      <p class="user-name">{{ userName }}</p>
+  </ng-container>
+
+  <ng-template #emptyAvatar>
+    <div class="avatar-placeholder" aria-hidden="true"></div>
+  </ng-template>
+
+  <ng-template #profilePlaceholder>
+    <div class="user-profile placeholder">
+      <div class="avatar-container empty">
+        <div class="avatar-placeholder" aria-hidden="true"></div>
+      </div>
+      <div class="user-info">
+        <p class="user-greeting skeleton-line"></p>
+        <p class="user-name skeleton-line"></p>
+      </div>
     </div>
-  </div>
+  </ng-template>
 
   <nav class="sidebar-nav">
     <a
       *ngFor="let item of menuItems"
       [routerLink]="item.route"
       routerLinkActive="active"
-      class="nav-item"
-      [class.active]="item.isActive">
-      <span class="nav-icon" [attr.data-icon]="item.icon"></span>
+      #rla="routerLinkActive"
+      [routerLinkActiveOptions]="{ exact: true }"
+      class="nav-item">
+      <span class="material-symbols-rounded nav-icon" aria-hidden="true">{{ item.icon }}</span>
       <span class="nav-label">{{ item.label }}</span>
     </a>
   </nav>

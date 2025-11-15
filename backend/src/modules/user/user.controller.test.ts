@@ -67,6 +67,7 @@ describe('UserController', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           profileImageUrl: undefined,
+          profileImageStatus: 'default' as any,
           avatarType: 'generated' as any,
           lastLogin: undefined,
         }
@@ -177,6 +178,7 @@ describe('UserController', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         profileImageUrl: undefined,
+        profileImageStatus: 'default' as any,
         avatarType: 'generated' as any,
         lastLogin: undefined,
       };
@@ -269,6 +271,7 @@ describe('UserController', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           profileImageUrl: undefined,
+          profileImageStatus: 'default' as any,
           avatarType: 'generated' as any,
           lastLogin: undefined,
         }

@@ -23,6 +23,7 @@ global.console = {
 
 // Helper function to validate user object
 function isValidUser(received: any): boolean {
+  const allowedStatuses = new Set(['custom', 'default', 'none']);
   return received &&
     typeof received.id === 'number' &&
     typeof received.username === 'string' &&
@@ -34,7 +35,8 @@ function isValidUser(received: any): boolean {
     received.updatedAt instanceof Date &&
     typeof received.avatarType === 'string' &&
     (received.lastLogin === null || received.lastLogin instanceof Date) &&
-    (received.profileImageUrl === null || typeof received.profileImageUrl === 'string');
+    (received.profileImageUrl === null || typeof received.profileImageUrl === 'string' || typeof received.profileImageUrl === 'undefined') &&
+    allowedStatuses.has(received.profileImageStatus);
 }
 
 // Custom matchers

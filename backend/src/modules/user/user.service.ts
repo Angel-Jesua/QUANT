@@ -1,10 +1,58 @@
-import { PrismaClient, UserRole, AvatarType, AuditAction } from '@prisma/client';
-import { ICreateUser, IUpdateUser, IUserResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse, IUserSession } from './user.types';
+import { PrismaClient, Prisma, UserRole, AvatarType, AuditAction } from '@prisma/client';
+import { ICreateUser, IUpdateUser, IUserResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse, IUserSession, ProfileImageStatus } from './user.types';
 import { hashPassword, comparePassword } from '../../utils/password';
 import { validateRegisterUser } from './user.validation';
 import jwt from 'jsonwebtoken';
+import { resolveProfileImageMeta } from './profile-image.util';
 
 const prisma = new PrismaClient();
+
+const USER_RESPONSE_SELECT = {
+  id: true,
+  username: true,
+  email: true,
+  fullName: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  profileImageUrl: true,
+  avatarType: true,
+  lastLogin: true,
+} as const;
+
+type SelectedUser = Prisma.UserAccountGetPayload<{ select: typeof USER_RESPONSE_SELECT }>;
+
+function mapStatusToAvatarType(status: ProfileImageStatus): AvatarType {
+  return status === 'custom' ? AvatarType.uploaded : AvatarType.generated;
+}
+
+function mapUserRecord(user: SelectedUser | null): IUserResponse | null {
+  if (!user) {
+    return null;
+  }
+
+  const profileMeta = resolveProfileImageMeta(user.profileImageUrl);
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    avatarType: user.avatarType,
+    profileImageUrl: profileMeta.path ?? undefined,
+    profileImageStatus: profileMeta.status,
+    lastLogin: user.lastLogin ?? undefined,
+  };
+}
+
+function mapUserList(users: SelectedUser[]): IUserResponse[] {
+  return users.map((user) => mapUserRecord(user)!).filter((item): item is IUserResponse => Boolean(item));
+}
 
 export class UserService {
   /**
@@ -12,26 +60,10 @@ export class UserService {
    */
   async getAllUsers(): Promise<IUserResponse[]> {
     const users = await prisma.userAccount.findMany({
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        fullName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        profileImageUrl: true,
-        avatarType: true,
-        lastLogin: true,
-      },
+      select: USER_RESPONSE_SELECT,
     });
 
-    return users.map(user => ({
-      ...user,
-      profileImageUrl: user.profileImageUrl || undefined,
-      lastLogin: user.lastLogin || undefined,
-    }));
+    return mapUserList(users);
   }
 
   /**
@@ -40,30 +72,10 @@ export class UserService {
   async getUserById(id: number): Promise<IUserResponse | null> {
     const user = await prisma.userAccount.findUnique({
       where: { id },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        fullName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        profileImageUrl: true,
-        avatarType: true,
-        lastLogin: true,
-      },
+      select: USER_RESPONSE_SELECT,
     });
 
-    if (!user) {
-      return null;
-    }
-
-    return {
-      ...user,
-      profileImageUrl: user.profileImageUrl || undefined,
-      lastLogin: user.lastLogin || undefined,
-    };
+    return mapUserRecord(user);
   }
 
   /**
@@ -130,6 +142,12 @@ export class UserService {
     const passwordHash = await hashPassword(userData.password);
     
     try {
+      const profileMeta = resolveProfileImageMeta(
+        userData.profileImageUrl,
+        { fallbackToDefault: userData.profileImageUrl !== null }
+      );
+      const avatarType = mapStatusToAvatarType(profileMeta.status);
+
       // Create user with default values as specified in the model
       const user = await prisma.userAccount.create({
         data: {
@@ -138,26 +156,15 @@ export class UserService {
           passwordHash: passwordHash,
           fullName: userData.fullName,
           role: userData.role || UserRole.accountant, // Default role
-          avatarType: AvatarType.generated, // Default avatar type
+          avatarType,
+          profileImageUrl: profileMeta.path,
           photoRequested: true, // Default value
           isActive: true, // Default value
           passwordChangedAt: new Date(), // Set when password is created
           // Self-referencing relationships
           ...(requestContext?.userId && { createdById: requestContext.userId }),
         },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          fullName: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          profileImageUrl: true,
-          avatarType: true,
-          lastLogin: true,
-        },
+        select: USER_RESPONSE_SELECT,
       });
 
       // Log the user creation in the audit log
@@ -175,7 +182,9 @@ export class UserService {
             role: user.role,
             isActive: user.isActive,
             avatarType: user.avatarType,
-            photoRequested: true
+            photoRequested: true,
+            profileImageUrl: profileMeta.path,
+            profileImageStatus: profileMeta.status,
           },
           ipAddress: requestContext?.ipAddress,
           userAgent: requestContext?.userAgent,
@@ -184,11 +193,7 @@ export class UserService {
         }
       });
 
-      return {
-        ...user,
-        profileImageUrl: user.profileImageUrl || undefined,
-        lastLogin: user.lastLogin || undefined,
-      };
+      return mapUserRecord(user)!;
     } catch (error) {
       // Log failed user creation attempt
       try {
@@ -239,32 +244,28 @@ export class UserService {
       }
     }
     
+    const { profileImageUrl, ...otherFields } = userData;
+    const updateData: Prisma.UserAccountUpdateInput = {
+      ...otherFields,
+      ...(requestContext?.userId && { updatedById: requestContext.userId }),
+    };
+
+    if (profileImageUrl !== undefined) {
+      const profileMeta = resolveProfileImageMeta(
+        profileImageUrl,
+        { fallbackToDefault: profileImageUrl !== null }
+      );
+      updateData.profileImageUrl = profileMeta.path;
+      updateData.avatarType = mapStatusToAvatarType(profileMeta.status);
+    }
+
     const user = await prisma.userAccount.update({
       where: { id },
-      data: {
-        ...userData,
-        ...(requestContext?.userId && { updatedById: requestContext.userId }),
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        fullName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        profileImageUrl: true,
-        avatarType: true,
-        lastLogin: true,
-      },
+      data: updateData,
+      select: USER_RESPONSE_SELECT,
     });
 
-    return {
-      ...user,
-      profileImageUrl: user.profileImageUrl || undefined,
-      lastLogin: user.lastLogin || undefined,
-    };
+    return mapUserRecord(user);
   }
 
   /**
@@ -422,6 +423,7 @@ export class UserService {
       }
 
       // Return user data without sensitive information
+      const profileMeta = resolveProfileImageMeta(user.profileImageUrl);
       return {
         id: user.id,
         username: user.username,
@@ -431,7 +433,8 @@ export class UserService {
         isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        profileImageUrl: user.profileImageUrl || undefined,
+        profileImageUrl: profileMeta.path ?? undefined,
+        profileImageStatus: profileMeta.status,
         avatarType: user.avatarType,
         lastLogin: now,
       };

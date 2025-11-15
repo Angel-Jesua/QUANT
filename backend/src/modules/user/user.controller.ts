@@ -16,6 +16,9 @@ import { AuditAction } from '@prisma/client';
 
 export class UserController {
   private userService = new UserService();
+  private static getRequestUserId(req: Request): number | undefined {
+    return (req as Request & { userId?: number }).userId;
+  }
 
   /**
    * Get all users
@@ -69,6 +72,30 @@ export class UserController {
         userAgent: req.get('User-Agent'),
       });
       res.status(500).json({ error: 'Failed to fetch user' });
+    }
+  }
+
+  /**
+   * Get authenticated user profile using the JWT context
+   */
+  async getCurrentUser(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = UserController.getRequestUserId(req);
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const user = await this.userService.getUserById(userId);
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      res.json(user);
+    } catch (error) {
+      logErrorContext('user.me.error', error, { userId: UserController.getRequestUserId(req) });
+      res.status(500).json({ error: 'Failed to fetch user profile' });
     }
   }
 
@@ -309,6 +336,7 @@ export class UserController {
             role: String(user.role),
             avatarType: String(user.avatarType),
             profileImageUrl: user.profileImageUrl ?? null,
+            profileImageStatus: user.profileImageStatus,
           },
           token: auth.token,
           expiresIn: auth.expiresIn,

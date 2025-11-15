@@ -1,5 +1,7 @@
 import { UserAccount, UserRole, AvatarType } from '@prisma/client';
 
+export type ProfileImageStatus = 'custom' | 'default' | 'none';
+
 // Base user interface
 export interface IUser {
   id: number;
@@ -19,6 +21,7 @@ export interface ICreateUser {
   password: string;
   fullName: string;
   role?: UserRole;
+  profileImageUrl?: string | null;
 }
 
 // User creation interface with hashed password (internal use)
@@ -28,6 +31,7 @@ export interface ICreateUserWithHash {
   passwordHash: string;
   fullName: string;
   role?: UserRole;
+  profileImageUrl?: string | null;
 }
 
 // User update interface
@@ -37,11 +41,13 @@ export interface IUpdateUser {
   fullName?: string;
   role?: UserRole;
   isActive?: boolean;
+  profileImageUrl?: string | null;
 }
 
 // User response interface (without sensitive data)
 export interface IUserResponse extends Omit<IUser, 'passwordHash'> {
   profileImageUrl?: string;
+  profileImageStatus: ProfileImageStatus;
   avatarType: AvatarType;
   lastLogin?: Date;
 }
@@ -54,6 +60,7 @@ export interface IRegisterUser {
   confirmPassword: string;
   fullName: string;
   role?: UserRole;
+  profileImageUrl?: string | null;
   acceptTerms: boolean;
 }
 

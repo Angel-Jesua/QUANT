@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
+import { API_BASE_URL } from '../shared/constants/api.constants';
+import { UserProfileDto, UserProfileService } from '../shared/services/user-profile.service';
 
 export interface LoginCredentials {
   email: string;
@@ -14,12 +16,7 @@ export interface LoginResponse {
   success: boolean;
   message?: string;
   token?: string;
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    role: string;
-  };
+  user?: UserProfileDto;
   expiresIn?: string;
 }
 
@@ -40,11 +37,11 @@ export interface ApiError {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly baseUrl = 'http://localhost:3000/api';
+  private readonly baseUrl = API_BASE_URL;
   private readonly storageKey = 'quant_auth_token';
   private readonly tokenSubject = new BehaviorSubject<string | null>(null);
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private userProfileService: UserProfileService) {
     const storedToken = localStorage.getItem(this.storageKey);
     this.tokenSubject.next(storedToken);
   }
@@ -64,6 +61,7 @@ export class AuthService {
     if (response.token) {
       localStorage.setItem(this.storageKey, response.token);
       this.tokenSubject.next(response.token);
+      this.userProfileService.setProfileFromAuth(response.user ?? null);
     }
   }
 
@@ -111,5 +109,6 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(this.storageKey);
     this.tokenSubject.next(null);
+    this.userProfileService.clearProfile();
   }
 }
