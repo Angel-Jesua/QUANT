@@ -1,0 +1,211 @@
+<div class="usuarios-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="usuarios-main">
+    <header class="page-header">
+      <h1 class="page-title">IURIS CONSULTUS S.A</h1>
+    </header>
+
+    <section class="usuarios-content">
+      <div class="content-card">
+        <div class="card-header">
+          <div class="header-left">
+            <h2 class="section-title">Registro de Usuarios</h2>
+            <span class="active-users-link">Usuarios Activos: {{ activeUsersCount() }}</span>
+          </div>
+          <div class="header-right">
+            <div class="search-box">
+              <img src="assets/icons/search-icon.svg" alt="Buscar" class="search-icon" />
+              <input 
+                type="text" 
+                placeholder="Buscar" 
+                class="search-input"
+                (input)="onSearch($event)"
+              />
+            </div>
+            <div class="sort-dropdown">
+              <span class="sort-label">Ordenar por : </span>
+              <span class="sort-value">Fecha</span>
+              <img src="assets/icons/chevron-down.svg" alt="Ordenar" class="dropdown-icon" />
+            </div>
+          </div>
+        </div>
+
+        <div class="registration-form" *ngIf="showForm()">
+          <form [formGroup]="registrationForm" (ngSubmit)="onSubmit()">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="cedula" class="field-label">Cédula:</label>
+                <input
+                  id="cedula"
+                  type="text"
+                  formControlName="cedula"
+                  placeholder="Ingrese número de cédula"
+                  class="field-input"
+                  [class.error]="registrationForm.get('cedula')?.invalid && registrationForm.get('cedula')?.touched"
+                />
+              </div>
+              <div class="form-field">
+                <label for="email" class="field-label">Email:</label>
+                <input
+                  id="email"
+                  type="email"
+                  formControlName="email"
+                  placeholder="Ingrese correo electrónico"
+                  class="field-input"
+                  [class.error]="registrationForm.get('email')?.invalid && registrationForm.get('email')?.touched"
+                />
+              </div>
+              <div class="form-field">
+                <label for="password" class="field-label">Contraseña:</label>
+                <input
+                  id="password"
+                  type="password"
+                  formControlName="password"
+                  placeholder="Ingrese contraseña"
+                  class="field-input"
+                  [class.error]="registrationForm.get('password')?.invalid && registrationForm.get('password')?.touched"
+                />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="username" class="field-label">Usuario:</label>
+                <input
+                  id="username"
+                  type="text"
+                  formControlName="username"
+                  placeholder="Ingrese nombre de usuario"
+                  class="field-input"
+                  [class.error]="registrationForm.get('username')?.invalid && registrationForm.get('username')?.touched"
+                />
+              </div>
+              <div class="form-field">
+                <label for="rol" class="field-label">Rol:</label>
+                <input
+                  id="rol"
+                  type="text"
+                  formControlName="rol"
+                  placeholder="Ingrese rol del usuario"
+                  class="field-input"
+                  [class.error]="registrationForm.get('rol')?.invalid && registrationForm.get('rol')?.touched"
+                />
+              </div>
+              <div class="form-field">
+                <label class="field-label">Foto de Perfil</label>
+                <div class="photo-upload-container">
+                  <input
+                    type="file"
+                    id="profilePhoto"
+                    accept="image/*"
+                    class="photo-input"
+                    (change)="onFileSelect($event)"
+                    #photoInput
+                  />
+                  <div class="photo-preview" *ngIf="selectedPhoto()">
+                    <img [src]="selectedPhoto()" alt="Preview" class="preview-image" />
+                  </div>
+                  <div class="photo-actions">
+                    <button type="button" class="btn-upload" (click)="photoInput.click()">
+                      Subir
+                    </button>
+                    <button type="button" class="btn-camera" (click)="onTakePhoto()">
+                      Tomar foto
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" (click)="onCancel()">Cancelar</button>
+              <button type="submit" class="btn-register" [disabled]="isLoading()">
+                {{ isLoading() ? 'Registrando...' : 'Registrar' }}
+              </button>
+            </div>
+          </form>
+          
+          <div class="message error-message" *ngIf="errorMessage()">
+            {{ errorMessage() }}
+          </div>
+          <div class="message success-message" *ngIf="successMessage()">
+            {{ successMessage() }}
+          </div>
+        </div>
+
+        <div class="users-table">
+          <div class="table-header">
+            <div class="header-cell nombre-col">Nombre</div>
+            <div class="header-cell email-col">Email</div>
+            <div class="header-cell fecha-col">Fecha de Registro</div>
+            <div class="header-cell ingreso-col">Último Ingreso</div>
+            <div class="header-cell tiempo-col">Tiempo Activo</div>
+            <div class="header-cell estado-col">Estado</div>
+            <div class="header-cell acciones-col">Acciones</div>
+          </div>
+
+          <div class="table-body" *ngIf="!isLoading(); else loading">
+            <div class="table-row" *ngFor="let user of paginatedData().users; let i = index">
+              <div class="table-cell nombre-col">{{ user.fullName }}</div>
+              <div class="table-cell email-col">{{ user.email }}</div>
+              <div class="table-cell fecha-col">{{ formatDate(user.createdAt) }}</div>
+              <div class="table-cell ingreso-col">{{ formatDateTime(user.lastLogin) }}</div>
+              <div class="table-cell tiempo-col">{{ calculateActiveTime(user.lastLogin) }}</div>
+              <div class="table-cell estado-col">
+                <label class="toggle-switch" [attr.aria-label]="'Toggle status for ' + user.fullName">
+                  <input 
+                    type="checkbox" 
+                    [checked]="user.isActive"
+                    (change)="toggleUserStatus(user)"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="table-cell acciones-col">
+                <button class="action-btn" (click)="viewUser(user)" [attr.aria-label]="'Ver detalles de ' + user.fullName">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1.33594 16C1.33594 16 6.66927 5.33334 16.0026 5.33334C25.3359 5.33334 30.6693 16 30.6693 16C30.6693 16 25.3359 26.6667 16.0026 26.6667C6.66927 26.6667 1.33594 16 1.33594 16Z" stroke="#292D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M16.0026 20C18.2118 20 20.0026 18.2091 20.0026 16C20.0026 13.7909 18.2118 12 16.0026 12C13.7935 12 12.0026 13.7909 12.0026 16C12.0026 18.2091 13.7935 20 16.0026 20Z" stroke="#292D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #loading>
+            <div class="loading-state">Cargando usuarios...</div>
+          </ng-template>
+        </div>
+
+        <div class="pagination" *ngIf="paginatedData().totalPages > 1">
+          <button 
+            class="page-btn" 
+            (click)="prevPage()"
+            [disabled]="currentPage() === 1"
+          >
+            &lt;
+          </button>
+          
+          <ng-container *ngFor="let page of pageNumbers()">
+            <button 
+              *ngIf="page !== '...'"
+              class="page-btn"
+              [class.active]="page === currentPage()"
+              (click)="isNumber(page) && goToPage(page)"
+            >
+              {{ page }}
+            </button>
+            <span *ngIf="page === '...'" class="page-ellipsis">...</span>
+          </ng-container>
+          
+          <button 
+            class="page-btn" 
+            (click)="nextPage()"
+            [disabled]="currentPage() === paginatedData().totalPages"
+          >
+            &gt;
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
