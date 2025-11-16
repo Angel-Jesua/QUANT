@@ -76,4 +76,13 @@ export class UsersService {
       tap(() => this.getAllUsers().subscribe())
     );
   }
+
+  uploadProfileImage(userId: number, imageFile: File): Observable<User> {
+    const formData = new FormData();
+    formData.append('profileImage', imageFile);
+    
+    return this.http.post<User>(`${this.apiUrl}/${userId}/upload-image`, formData).pipe(
+      tap(() => this.getAllUsers().subscribe())
+    );
+  }
 }

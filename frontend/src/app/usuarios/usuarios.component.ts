@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
 import { UsersService, User, CreateUserData } from '../shared/services/users.service';
+import { UserProfileService } from '../shared/services/user-profile.service';
 
 interface PaginatedUsers {
   users: User[];
@@ -23,6 +24,7 @@ interface PaginatedUsers {
 export class UsuariosComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly usersService = inject(UsersService);
+  private readonly profileService = inject(UserProfileService);
 
   readonly users = signal<User[]>([]);
   readonly isLoading = signal<boolean>(false);
@@ -167,14 +169,43 @@ export class UsuariosComponent implements OnInit {
 
       this.usersService.createUser(userData).subscribe({
         next: (response) => {
-          this.isLoading.set(false);
-          this.successMessage.set('Usuario registrado exitosamente');
-          this.registrationForm.reset();
-          this.selectedPhoto.set(null);
-          this.photoFile.set(null);
-          this.loadUsers();
-          
-          setTimeout(() => this.successMessage.set(''), 3000);
+          // If there's a profile photo, upload it
+          const photoFile = this.photoFile();
+          if (photoFile && response.data?.id) {
+            this.usersService.uploadProfileImage(response.data.id, photoFile).subscribe({
+              next: (updatedUser) => {
+                this.isLoading.set(false);
+                this.successMessage.set('Usuario y foto de perfil registrados exitosamente');
+                this.registrationForm.reset();
+                this.selectedPhoto.set(null);
+                this.photoFile.set(null);
+                this.loadUsers();
+                
+                // Refresh profile in sidebar if current user was updated
+                const currentProfile = this.profileService.snapshot;
+                if (currentProfile && currentProfile.id === updatedUser.id) {
+                  this.profileService.loadProfile(true).subscribe();
+                }
+                
+                setTimeout(() => this.successMessage.set(''), 3000);
+              },
+              error: (error) => {
+                this.isLoading.set(false);
+                console.error('Error uploading profile image:', error);
+                this.errorMessage.set('Usuario creado, pero falló la subida de la imagen');
+                this.loadUsers();
+                setTimeout(() => this.errorMessage.set(''), 3000);
+              }
+            });
+          } else {
+            this.isLoading.set(false);
+            this.successMessage.set('Usuario registrado exitosamente');
+            this.registrationForm.reset();
+            this.selectedPhoto.set(null);
+            this.photoFile.set(null);
+            this.loadUsers();
+            setTimeout(() => this.successMessage.set(''), 3000);
+          }
         },
         error: (error) => {
           this.isLoading.set(false);

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { UserController } from './user.controller';
 import { authenticateJWT } from '../../middleware/auth.middleware';
+import { uploadProfileImage } from '../../middleware/upload.middleware';
  
 const router = Router();
 const userController = new UserController();
@@ -20,5 +21,6 @@ router.post('/', userController.createUser.bind(userController));
 router.put('/:id', userController.updateUser.bind(userController));
 router.delete('/:id', userController.deleteUser.bind(userController));
 router.post('/:id/change-password', userController.changePassword.bind(userController));
+router.post('/:id/upload-image', uploadProfileImage.single('profileImage'), userController.uploadProfileImage.bind(userController));
  
 export { router as userRoutes };

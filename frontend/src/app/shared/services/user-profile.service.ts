@@ -83,7 +83,9 @@ export class UserProfileService {
       return path;
     }
 
+    // For uploaded images, use the backend server URL
     const normalized = path.replace(/^\/+/g, '');
-    return `/${normalized}`;
+    const backendUrl = API_BASE_URL.replace('/api', ''); // Remove /api suffix
+    return `${backendUrl}/${normalized}`;
   }
 }

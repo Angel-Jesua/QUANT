@@ -21,6 +21,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Serve static files (profile images)
+app.use('/images', express.static('public/images'));
+
 // Basic route
 app.get('/', (req: any, res: any) => {
   res.json({ message: 'Backend server is running!' });

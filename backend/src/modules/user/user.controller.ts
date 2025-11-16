@@ -489,4 +489,54 @@ export class UserController {
       res.status(500).json(response);
     }
   }
+
+  /**
+   * Upload profile image for a user
+   */
+  async uploadProfileImage(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = parseInt(id, 10);
+      
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({ error: 'No image file provided' });
+        return;
+      }
+
+      // Get the relative path for storage
+      const imagePath = `images/profile/${req.file.filename}`;
+      
+      const requestContext = {
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        userId: UserController.getRequestUserId(req)
+      };
+
+      const updatedUser = await this.userService.uploadProfileImage(userId, imagePath, requestContext);
+      
+      if (!updatedUser) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      const idParam = parseInt(req.params.id, 10);
+      logErrorContext('user.upload_image.error', error, { id: idParam });
+      await logAuditError({
+        action: AuditAction.photo_upload,
+        entityType: 'user',
+        entityId: isNaN(idParam) ? undefined : idParam,
+        errorKey: 'upload_image_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
+      res.status(500).json({ error: 'Failed to upload profile image' });
+    }
+  }
 }

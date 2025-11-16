@@ -257,6 +257,12 @@ export class UserService {
       );
       updateData.profileImageUrl = profileMeta.path;
       updateData.avatarType = mapStatusToAvatarType(profileMeta.status);
+      
+      // Set photoUploadedAt when uploading a custom profile image
+      if (profileMeta.status === 'custom' && profileImageUrl) {
+        updateData.photoUploadedAt = new Date();
+        updateData.photoRequested = false;
+      }
     }
 
     const user = await prisma.userAccount.update({
@@ -627,7 +633,48 @@ export class UserService {
       return true;
     } catch (error) {
       console.error('Error changing password:', error);
-      return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Upload profile image for a user
+   */
+  async uploadProfileImage(
+    userId: number,
+    imagePath: string,
+    requestContext?: { ipAddress?: string; userAgent?: string; userId?: number }
+  ): Promise<IUserResponse | null> {
+    try {
+      const updatedUser = await this.updateUser(
+        userId,
+        { profileImageUrl: imagePath },
+        requestContext
+      );
+
+      // Log audit entry for photo upload
+      try {
+        await prisma.userAuditLog.create({
+          data: {
+            userId,
+            action: AuditAction.photo_upload,
+            entityType: 'user',
+            entityId: userId,
+            newData: { profileImageUrl: imagePath },
+            ipAddress: requestContext?.ipAddress,
+            userAgent: requestContext?.userAgent,
+            success: true,
+            performedAt: new Date()
+          }
+        });
+      } catch (auditError) {
+        console.error('Failed to log audit entry:', auditError);
+      }
+
+      return updatedUser;
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      throw error;
     }
   }
 }
