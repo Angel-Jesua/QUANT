@@ -1,0 +1,122 @@
+<div class="user-detail-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="user-detail-main">
+    <header class="page-header">
+      <button class="back-btn" (click)="goBack()">
+        <!-- Simple arrow SVG -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Volver</span>
+      </button>
+      <h1 class="page-title">Detalles del Usuario</h1>
+    </header>
+
+    <div class="content-container" *ngIf="!isLoading(); else loading">
+      <div class="error-message" *ngIf="error()">{{ error() }}</div>
+
+      <div class="user-profile-card" *ngIf="user() as u">
+        <div class="profile-header">
+          <div class="profile-image">
+            <img [src]="u.profileImageUrl || 'assets/images/default-avatar.png'" [alt]="u.fullName" onerror="this.src='assets/images/default-avatar.png'">
+          </div>
+          <div class="profile-info">
+            <h2>{{ u.fullName }}</h2>
+            <span class="role-badge">{{ u.role }}</span>
+            <span class="status-badge" [class.active]="u.isActive">{{ u.isActive ? 'Activo' : 'Inactivo' }}</span>
+          </div>
+        </div>
+
+        <div class="details-grid">
+          <section class="detail-section">
+            <h3>Información Personal</h3>
+            <div class="info-row">
+              <span class="label">Usuario:</span>
+              <span class="value">{{ u.username }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Email:</span>
+              <span class="value">{{ u.email }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">ID:</span>
+              <span class="value">{{ u.id }}</span>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h3>Seguridad y Acceso</h3>
+            <div class="info-row">
+              <span class="label">Último Login:</span>
+              <span class="value">{{ formatDate(u.lastLogin) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Última Actividad:</span>
+              <span class="value">{{ formatDate(u.lastActivity) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Intentos Fallidos:</span>
+              <span class="value">{{ u.failedLoginAttempts }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Cambio Password:</span>
+              <span class="value">{{ formatDate(u.passwordChangedAt) }}</span>
+            </div>
+             <div class="info-row">
+              <span class="label">Debe cambiar pass:</span>
+              <span class="value">{{ u.mustChangePassword ? 'Sí' : 'No' }}</span>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h3>Metadatos</h3>
+            <div class="info-row">
+              <span class="label">Creado:</span>
+              <span class="value">{{ formatDate(u.createdAt) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Actualizado:</span>
+              <span class="value">{{ formatDate(u.updatedAt) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Google ID:</span>
+              <span class="value">{{ u.googleId || 'N/A' }}</span>
+            </div>
+             <div class="info-row">
+              <span class="label">Facebook ID:</span>
+              <span class="value">{{ u.facebookId || 'N/A' }}</span>
+            </div>
+          </section>
+
+          <section class="detail-section full-width" *ngIf="u._count">
+            <h3>Estadísticas Relacionadas</h3>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-value">{{ u._count.sessions }}</span>
+                <span class="stat-label">Sesiones</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ u._count.createdClients }}</span>
+                <span class="stat-label">Clientes Creados</span>
+              </div>
+               <div class="stat-card">
+                <span class="stat-value">{{ u._count.createdAccounts }}</span>
+                <span class="stat-label">Cuentas Creadas</span>
+              </div>
+               <div class="stat-card">
+                <span class="stat-value">{{ u._count.auditLogs }}</span>
+                <span class="stat-label">Logs Auditoría</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #loading>
+      <div class="loading-spinner">Cargando detalles...</div>
+    </ng-template>
+  </main>
+</div>

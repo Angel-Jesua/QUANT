@@ -76,6 +76,41 @@ export class UserController {
   }
 
   /**
+   * Get user details by ID
+   */
+  async getUserDetails(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = parseInt(id, 10);
+      
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const user = await this.userService.getUserDetails(userId);
+      
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      res.json(user);
+    } catch (error) {
+      logErrorContext('user.getDetails.error', error, { id: req.params.id });
+      await logAuditError({
+        action: AuditAction.update,
+        entityType: 'user',
+        entityId: parseInt(req.params.id, 10),
+        errorKey: 'fetch_user_details_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
+      res.status(500).json({ error: 'Failed to fetch user details' });
+    }
+  }
+
+  /**
    * Get authenticated user profile using the JWT context
    */
   async getCurrentUser(req: Request, res: Response): Promise<void> {

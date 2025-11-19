@@ -2,11 +2,16 @@
 
 ## Current Status
 
-*   **Backend:** The backend API has a solid foundation with modules for key features like user management, authentication, and client data. The database schema is defined and includes several migrations, indicating that the data model has evolved. Unit and integration tests are in place for some of the services.
-*   **Frontend:** The frontend has basic components for authentication and a general application structure. However, it is currently not starting due to an error.
+*   **Backend:** The backend API is functional with user management, authentication, and profile image support. Endpoints for user creation and profile image upload are implemented.
+*   **Frontend:** The frontend is active and under development.
+    *   **User Management:** The `UsuariosComponent` allows registering new users.
+    *   **Profile Images:** Implemented a feature to capture profile photos using the device's webcam during registration. The UI includes a live preview, capture, and retake functionality.
+
+## Recent Achievements
+*   Implemented webcam integration in `UsuariosComponent`.
+*   Added a modal interface for taking photos.
+*   Integrated the captured photo with the user registration flow.
 
 ## Known Issues
+*   (None currently reported blocking development)
 
-*   **Frontend Fails to Start:** The `npm start` command in the `frontend` directory is failing. This is the most critical issue to address to enable further frontend development and testing. The cause of the error is not yet known.
-*   **Incomplete Test Coverage:** While a testing framework is in place, it's likely that not all parts of the application are fully tested. For example, `account.service.ts` and `currency.service.ts` do not have corresponding test files.
-*   **Missing Environment Configuration:** There is no mention of `.env` files or other environment configuration management, which is crucial for handling secrets like database connection strings and JWT secrets.

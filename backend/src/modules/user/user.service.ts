@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma, UserRole, AvatarType, AuditAction } from '@prisma/client';
-import { ICreateUser, IUpdateUser, IUserResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse, IUserSession, ProfileImageStatus } from './user.types';
+import { ICreateUser, IUpdateUser, IUserResponse, IUserDetailsResponse, ILoginUser, ICredentialUniquenessResult, IRegisterUser, IRegistrationResponse, IUserSession, ProfileImageStatus } from './user.types';
 import { hashPassword, comparePassword } from '../../utils/password';
 import { validateRegisterUser } from './user.validation';
 import jwt from 'jsonwebtoken';
@@ -22,6 +22,31 @@ const USER_RESPONSE_SELECT = {
 } as const;
 
 type SelectedUser = Prisma.UserAccountGetPayload<{ select: typeof USER_RESPONSE_SELECT }>;
+
+const USER_DETAILS_SELECT = {
+  ...USER_RESPONSE_SELECT,
+  lastActivity: true,
+  failedLoginAttempts: true,
+  lockedUntil: true,
+  passwordChangedAt: true,
+  mustChangePassword: true,
+  googleId: true,
+  facebookId: true,
+  createdById: true,
+  updatedById: true,
+  _count: {
+    select: {
+      sessions: true,
+      auditLogs: true,
+      createdClients: true,
+      updatedClients: true,
+      createdAccounts: true,
+      updatedAccounts: true,
+      createdCurrencies: true,
+      updatedCurrencies: true,
+    }
+  }
+} as const;
 
 function mapStatusToAvatarType(status: ProfileImageStatus): AvatarType {
   return status === 'custom' ? AvatarType.uploaded : AvatarType.generated;
@@ -76,6 +101,45 @@ export class UserService {
     });
 
     return mapUserRecord(user);
+  }
+
+  /**
+   * Get user details by ID
+   */
+  async getUserDetails(id: number): Promise<IUserDetailsResponse | null> {
+    const user = await prisma.userAccount.findUnique({
+      where: { id },
+      select: USER_DETAILS_SELECT,
+    });
+
+    if (!user) return null;
+
+    const profileMeta = resolveProfileImageMeta(user.profileImageUrl);
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      avatarType: user.avatarType,
+      profileImageUrl: profileMeta.path ?? undefined,
+      profileImageStatus: profileMeta.status,
+      lastLogin: user.lastLogin ?? undefined,
+      lastActivity: user.lastActivity ?? undefined,
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil ?? undefined,
+      passwordChangedAt: user.passwordChangedAt ?? undefined,
+      mustChangePassword: user.mustChangePassword,
+      googleId: user.googleId,
+      facebookId: user.facebookId,
+      createdById: user.createdById,
+      updatedById: user.updatedById,
+      _count: user._count,
+    };
   }
 
   /**

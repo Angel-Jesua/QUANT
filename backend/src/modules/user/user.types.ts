@@ -52,6 +52,29 @@ export interface IUserResponse extends Omit<IUser, 'passwordHash'> {
   lastLogin?: Date;
 }
 
+// Detailed user response interface
+export interface IUserDetailsResponse extends IUserResponse {
+  lastActivity?: Date;
+  failedLoginAttempts: number;
+  lockedUntil?: Date;
+  passwordChangedAt?: Date;
+  mustChangePassword: boolean;
+  googleId?: string | null;
+  facebookId?: string | null;
+  createdById?: number | null;
+  updatedById?: number | null;
+  _count?: {
+    sessions: number;
+    auditLogs: number;
+    createdClients: number;
+    updatedClients: number;
+    createdAccounts: number;
+    updatedAccounts: number;
+    createdCurrencies: number;
+    updatedCurrencies: number;
+  };
+}
+
 // User registration interface
 export interface IRegisterUser {
   username: string;

@@ -12,3 +12,7 @@ The QUANT application appears to be a financial services platform. Based on the 
 ## User Experience Goals
 
 The frontend is an Angular single-page application (SPA). The presence of components for login, password recovery, and password reset indicates a focus on a standard and user-friendly authentication flow. The `animated-background` component suggests an effort to create a visually engaging user interface. The overall goal is likely to provide a secure and intuitive web interface for users to interact with the financial data and services offered by the backend.
+
+**Admin Features:**
+- **User Registration:** Administrators can register new users and capture their profile photos directly via webcam, streamlining the onboarding process.
+

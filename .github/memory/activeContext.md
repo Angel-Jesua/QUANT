@@ -2,14 +2,18 @@
 
 ## Current Focus
 
-The last command run in the terminal was `npm start` in the `frontend` directory, which failed. This suggests that the current focus of development is on the frontend application. The error indicates a problem with starting the Angular development server.
+The current focus is on enhancing the User Management module in the frontend, specifically the user registration process.
+
+## Recent Changes
+
+*   **Feature Implementation:** Added "Take Photo" functionality to the user registration form.
+    *   **Files Modified:**
+        *   `frontend/src/app/usuarios/usuarios.component.ts`: Added logic for `getUserMedia`, canvas capture, and file conversion.
+        *   `frontend/src/app/usuarios/usuarios.component.html`: Added the Camera Modal markup.
+        *   `frontend/src/app/usuarios/usuarios.component.scss`: Added styles for the modal and video preview.
 
 ## Next Steps
 
-The immediate next step should be to diagnose and fix the error preventing the frontend application from starting. This could involve:
+*   Verify the integration of the captured photo with the backend upload endpoint.
+*   Continue refining the user experience for the registration process.
 
-1.  Checking the `package.json` in the `frontend` directory for the `start` script.
-2.  Ensuring all frontend dependencies are installed by running `npm install`.
-3.  Reviewing the error output from the `npm start` command for specific clues about the problem.
-
-Once the frontend is running, the next logical step would be to continue development on the frontend, possibly integrating it with the backend API.

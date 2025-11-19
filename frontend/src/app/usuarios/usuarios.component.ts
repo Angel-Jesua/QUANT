@@ -1,6 +1,7 @@
-import { Component, ChangeDetectionStrategy, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit, signal, computed, inject, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
 import { UsersService, User, CreateUserData } from '../shared/services/users.service';
 import { UserProfileService } from '../shared/services/user-profile.service';
@@ -25,6 +26,7 @@ export class UsuariosComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly usersService = inject(UsersService);
   private readonly profileService = inject(UserProfileService);
+  private readonly router = inject(Router);
 
   readonly users = signal<User[]>([]);
   readonly isLoading = signal<boolean>(false);
@@ -247,8 +249,92 @@ export class UsuariosComponent implements OnInit {
     }
   }
 
-  onTakePhoto(): void {
-    console.log('Activar cámara para tomar foto');
+  @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
+  @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
+
+  showCamera = signal<boolean>(false);
+  cameraError = signal<string>('');
+  private stream: MediaStream | null = null;
+
+  async onTakePhoto(): Promise<void> {
+    this.showCamera.set(true);
+    this.cameraError.set('');
+    await this.initCamera();
+  }
+
+  async initCamera(): Promise<void> {
+    try {
+      // Verificar si el navegador soporta mediaDevices
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Tu navegador no soporta acceso a la cámara');
+      }
+
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        } 
+      });
+
+      if (this.videoElement && this.videoElement.nativeElement) {
+        this.videoElement.nativeElement.srcObject = this.stream;
+        // Reproducir el video una vez que el stream esté listo
+        await this.videoElement.nativeElement.play();
+      }
+    } catch (err: any) {
+      let message = 'No se pudo acceder a la cámara.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        message = 'Permiso de cámara denegado. Por favor permite el acceso.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        message = 'No se encontró ninguna cámara en el dispositivo.';
+      }
+      
+      this.cameraError.set(message);
+      console.error('Error accessing camera:', err);
+    }
+  }
+
+  capturePhoto(): void {
+    if (!this.videoElement || !this.canvasElement) return;
+    
+    const video = this.videoElement.nativeElement;
+    const canvas = this.canvasElement.nativeElement;
+    
+    // Asegurar que el canvas tenga las dimensiones del video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const context = canvas.getContext('2d');
+    if (context) {
+      // Dibujar el frame actual del video en el canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convertir a base64 para la vista previa
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      this.selectedPhoto.set(dataUrl);
+      
+      // Convertir a Blob/File para la subida
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
+          this.photoFile.set(file);
+        }
+      }, 'image/jpeg', 0.9);
+      
+      // Cerrar la cámara después de tomar la foto
+      this.closeCamera();
+    }
+  }
+
+  closeCamera(): void {
+    // Detener todos los tracks del stream (video/audio)
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    this.showCamera.set(false);
+    this.cameraError.set('');
   }
 
   toggleUserStatus(user: User): void {
@@ -289,7 +375,7 @@ export class UsuariosComponent implements OnInit {
   }
 
   viewUser(user: User): void {
-    console.log('View user:', user);
+    this.router.navigate(['/usuarios', user.id]);
   }
 
   formatDate(dateString: string): string {

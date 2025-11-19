@@ -16,6 +16,7 @@ router.use(authenticateJWT);
 // Protected user routes
 router.get('/me', userController.getCurrentUser.bind(userController));
 router.get('/', userController.getAllUsers.bind(userController));
+router.get('/:id/details', userController.getUserDetails.bind(userController));
 router.get('/:id', userController.getUserById.bind(userController));
 router.post('/', userController.createUser.bind(userController));
 router.put('/:id', userController.updateUser.bind(userController));

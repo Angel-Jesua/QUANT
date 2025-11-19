@@ -208,4 +208,32 @@
       </div>
     </section>
   </main>
+
+  <!-- Camera Modal -->
+  <div class="camera-modal-overlay" *ngIf="showCamera()">
+    <div class="camera-modal">
+      <div class="camera-header">
+        <h3>Tomar Foto de Perfil</h3>
+        <button class="close-btn" (click)="closeCamera()">&times;</button>
+      </div>
+      
+      <div class="camera-content">
+        <div class="video-container">
+          <video #videoElement autoplay playsinline muted></video>
+          <canvas #canvasElement style="display: none;"></canvas>
+        </div>
+        
+        <div class="error-message" *ngIf="cameraError()">
+          {{ cameraError() }}
+        </div>
+      </div>
+
+      <div class="camera-actions">
+        <button type="button" class="btn-cancel" (click)="closeCamera()">Cancelar</button>
+        <button type="button" class="btn-capture" (click)="capturePhoto()" [disabled]="!!cameraError()">
+          Capturar
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

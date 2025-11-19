@@ -18,6 +18,28 @@ export interface User {
   avatarType?: string;
 }
 
+export interface UserDetails extends User {
+  lastActivity?: string;
+  failedLoginAttempts: number;
+  lockedUntil?: string;
+  passwordChangedAt?: string;
+  mustChangePassword: boolean;
+  googleId?: string;
+  facebookId?: string;
+  createdById?: number;
+  updatedById?: number;
+  _count?: {
+    sessions: number;
+    auditLogs: number;
+    createdClients: number;
+    updatedClients: number;
+    createdAccounts: number;
+    updatedAccounts: number;
+    createdCurrencies: number;
+    updatedCurrencies: number;
+  };
+}
+
 export interface CreateUserData {
   username: string;
   email: string;
@@ -57,6 +79,10 @@ export class UsersService {
 
   getUserById(id: number): Observable<User> {
     return this.http.get<User>(`${this.apiUrl}/${id}`);
+  }
+
+  getUserDetails(id: number): Observable<UserDetails> {
+    return this.http.get<UserDetails>(`${this.apiUrl}/${id}/details`);
   }
 
   createUser(userData: CreateUserData): Observable<{ success: boolean; message: string; data: User }> {

@@ -670,3 +670,134 @@
     width: 100%;
   }
 }
+
+/* Camera Modal Styles */
+.camera-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.camera-modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease-out;
+
+  .camera-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    h3 {
+      margin: 0;
+      color: #03055E;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #666;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      
+      &:hover {
+        color: #333;
+      }
+    }
+  }
+
+  .camera-content {
+    margin-bottom: 24px;
+    
+    .video-container {
+      width: 100%;
+      height: 400px;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1); // Mirror effect
+      }
+    }
+
+    .error-message {
+      color: #dc3545;
+      margin-top: 12px;
+      text-align: center;
+      font-size: 14px;
+    }
+  }
+
+  .camera-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+
+    button {
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-cancel {
+      background: #f5f5f5;
+      color: #666;
+
+      &:hover {
+        background: #e0e0e0;
+      }
+    }
+
+    .btn-capture {
+      background: #03055E;
+      color: #fff;
+
+      &:hover {
+        background: #02044a;
+      }
+
+      &:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
