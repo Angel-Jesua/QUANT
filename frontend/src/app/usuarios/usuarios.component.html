@@ -13,20 +13,69 @@
             <h2 class="section-title">Registro de Usuarios</h2>
             <span class="active-users-link">Usuarios Activos: {{ activeUsersCount() }}</span>
           </div>
-          <div class="header-right">
-            <div class="search-box">
-              <img src="assets/icons/search-icon.svg" alt="Buscar" class="search-icon" />
-              <input 
-                type="text" 
-                placeholder="Buscar" 
-                class="search-input"
-                (input)="onSearch($event)"
-              />
+          <div class="control-module">
+            <div class="control-row primary-controls">
+              <div class="search-box">
+                <img src="assets/icons/search-icon.svg" alt="Buscar" class="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por nombre, usuario..." 
+                  class="search-input"
+                  [value]="searchTerm()"
+                  (input)="onSearch($event)"
+                />
+              </div>
+              
+              <div class="sort-controls">
+                <select [value]="sortBy()" (change)="onSortChange($event)" class="sort-select">
+                  <option value="date">Fecha</option>
+                  <option value="username">Usuario</option>
+                  <option value="role">Rol</option>
+                  <option value="status">Estado</option>
+                  <option value="lastAccess">Último Acceso</option>
+                </select>
+                <button (click)="toggleSortOrder()" class="sort-order-btn" [title]="sortOrder() === 'asc' ? 'Ascendente' : 'Descendente'">
+                  <span class="sort-arrow" [class.asc]="sortOrder() === 'asc'">↓</span>
+                </button>
+                <button (click)="resetSort()" class="sort-reset-btn" title="Restablecer orden por defecto">↺</button>
+              </div>
+              
+              <button (click)="toggleFilters()" class="filter-toggle-btn" [class.active]="showFilters() || hasActiveFilters()">
+                <span class="filter-icon">⚙️</span> Filtros
+                <span class="filter-dot" *ngIf="hasActiveFilters()"></span>
+              </button>
             </div>
-            <div class="sort-dropdown">
-              <span class="sort-label">Ordenar por : </span>
-              <span class="sort-value">Fecha</span>
-              <img src="assets/icons/chevron-down.svg" alt="Ordenar" class="dropdown-icon" />
+
+            <div class="control-row advanced-filters" *ngIf="showFilters()">
+              <div class="filter-group">
+                <label>Desde:</label>
+                <input type="date" [value]="filterDateStart()" (change)="onDateStartChange($event)" class="filter-input">
+              </div>
+              <div class="filter-group">
+                <label>Hasta:</label>
+                <input type="date" [value]="filterDateEnd()" (change)="onDateEndChange($event)" class="filter-input">
+              </div>
+              <div class="filter-group">
+                <label>Rol:</label>
+                <select [value]="filterRole()" (change)="onRoleChange($event)" class="filter-select">
+                  <option value="">Todos</option>
+                  <option value="admin">Admin</option>
+                  <option value="editor">Editor</option>
+                  <option value="user">Usuario</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label>Estado:</label>
+                <select [value]="filterStatus()" (change)="onStatusChange($event)" class="filter-select">
+                  <option value="">Todos</option>
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                </select>
+              </div>
+              
+              <div class="filter-actions">
+                <button (click)="clearFilters()" class="btn-clear">Limpiar Filtros</button>
+              </div>
             </div>
           </div>
         </div>

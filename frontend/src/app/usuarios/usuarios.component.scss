@@ -72,10 +72,23 @@
   letter-spacing: -0.14px;
 }
 
-.header-right {
+.control-module {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   gap: 16px;
+  margin-left: 32px;
+}
+
+.control-row {
+  display: flex;
+  gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+  
+  &.primary-controls {
+    justify-content: flex-end;
+  }
 }
 
 .search-box {
@@ -100,53 +113,212 @@
   flex: 1;
   border: none;
   background: transparent;
-  color: #B5B7C0;
-  font-family: 'Poppins', -apple-system, Roboto, Helvetica, sans-serif;
+  font-family: 'Poppins';
   font-size: 12px;
-  font-weight: 400;
-  line-height: normal;
-  letter-spacing: -0.12px;
-  padding: 0 8px;
+  color: #7E7E7E;
   outline: none;
+  
+  &::placeholder {
+    color: #B5B7C0;
+  }
 }
 
-.search-input::placeholder {
-  color: #B5B7C0;
-}
-
-.sort-dropdown {
+.sort-controls {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 184px;
-  height: 41px;
   background: #F9FBFF;
   border-radius: 10px;
-  padding: 0 16px;
+  padding: 0 12px;
+  height: 41px;
+}
+
+.sort-select {
+  border: none;
+  background: transparent;
+  font-family: 'Poppins';
+  font-size: 12px;
+  color: #7E7E7E;
+  outline: none;
   cursor: pointer;
+  min-width: 120px;
 }
 
-.sort-label {
+.sort-order-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #7E7E7E;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: -0.12px;
+  
+  .sort-arrow {
+    font-size: 16px;
+    transition: transform 0.3s ease;
+    
+    &.asc {
+      transform: rotate(180deg);
+    }
+  }
 }
 
-.sort-value {
+.sort-reset-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #B5B7C0;
+  font-size: 16px;
+  transition: color 0.2s;
+  
+  &:hover {
+    color: #0062FF;
+  }
+}
+
+.filter-toggle-btn {
+  height: 41px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #E2ECF9;
+  background: #FFF;
   color: #7E7E7E;
+  font-family: 'Poppins';
   font-size: 12px;
-  font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: -0.12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  
+  &:hover, &.active {
+    background: #F9FBFF;
+    border-color: #0062FF;
+    color: #0062FF;
+  }
+}
+
+.filter-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #0062FF;
+  border-radius: 50%;
+}
+
+.advanced-filters {
+  background: #F9FBFF;
+  padding: 20px;
+  border-radius: 15px;
+  border: 1px solid #E2ECF9;
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   flex: 1;
+  min-width: 140px;
+  
+  label {
+    font-size: 12px;
+    color: #292D32;
+    font-weight: 500;
+  }
 }
 
-.dropdown-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+.filter-input, .filter-select {
+  height: 40px;
+  border: 1px solid #E2ECF9;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-family: 'Poppins';
+  font-size: 12px;
+  color: #7E7E7E;
+  background: #FFF;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  
+  &:focus {
+    border-color: #0062FF;
+  }
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+.btn-clear {
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: #FF4B4B;
+  font-family: 'Poppins';
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 1200px) {
+  .card-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .control-module {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .primary-controls {
+    justify-content: space-between;
+    
+    .search-box {
+      flex: 1;
+      min-width: 200px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .primary-controls {
+    flex-direction: column;
+    align-items: stretch;
+    
+    .search-box, .sort-controls, .filter-toggle-btn {
+      width: 100%;
+    }
+  }
+  
+  .advanced-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .filter-actions {
+    justify-content: flex-end;
+  }
 }
 
 .registration-form {

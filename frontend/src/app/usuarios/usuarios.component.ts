@@ -31,7 +31,18 @@ export class UsuariosComponent implements OnInit {
   readonly users = signal<User[]>([]);
   readonly isLoading = signal<boolean>(false);
   readonly searchTerm = signal<string>('');
-  readonly sortBy = signal<'fecha' | 'nombre' | 'email'>('fecha');
+  
+  // Filter signals
+  readonly filterDateStart = signal<string | null>(null);
+  readonly filterDateEnd = signal<string | null>(null);
+  readonly filterRole = signal<string>('');
+  readonly filterStatus = signal<string>('');
+  readonly showFilters = signal<boolean>(false);
+
+  // Sort signals
+  readonly sortBy = signal<'date' | 'username' | 'role' | 'status' | 'lastAccess'>('date');
+  readonly sortOrder = signal<'asc' | 'desc'>('desc');
+
   readonly currentPage = signal<number>(1);
   readonly pageSize = 4;
   readonly selectedPhoto = signal<string | null>(null);
@@ -46,32 +57,78 @@ export class UsuariosComponent implements OnInit {
     this.users().filter(user => user.isActive).length
   );
 
+  readonly hasActiveFilters = computed(() => {
+    return !!(this.searchTerm() || this.filterDateStart() || this.filterDateEnd() || this.filterRole() || this.filterStatus());
+  });
+
   readonly filteredUsers = computed(() => {
     const search = this.searchTerm().toLowerCase();
+    const dateStart = this.filterDateStart();
+    const dateEnd = this.filterDateEnd();
+    const role = this.filterRole().toLowerCase();
+    const status = this.filterStatus();
+    
     const allUsers = this.users();
     
-    if (!search) return allUsers;
-    
-    return allUsers.filter(user =>
-      user.fullName.toLowerCase().includes(search) ||
-      user.email.toLowerCase().includes(search) ||
-      user.username.toLowerCase().includes(search)
-    );
+    return allUsers.filter(user => {
+      // Text search
+      const matchesSearch = !search || 
+        user.fullName.toLowerCase().includes(search) ||
+        user.email.toLowerCase().includes(search) ||
+        user.username.toLowerCase().includes(search);
+
+      // Role filter
+      const matchesRole = !role || user.role.toLowerCase().includes(role);
+      
+      // Status filter
+      const matchesStatus = !status || 
+        (status === 'active' && user.isActive) || 
+        (status === 'inactive' && !user.isActive);
+
+      // Date range filter
+      let matchesDate = true;
+      if (dateStart || dateEnd) {
+        const userDate = new Date(user.createdAt).getTime();
+        if (dateStart && userDate < new Date(dateStart).getTime()) matchesDate = false;
+        // Add 1 day to end date to include the selected day fully
+        if (dateEnd) {
+          const endDate = new Date(dateEnd);
+          endDate.setDate(endDate.getDate() + 1);
+          if (userDate >= endDate.getTime()) matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesRole && matchesStatus && matchesDate;
+    });
   });
 
   readonly sortedUsers = computed(() => {
     const users = [...this.filteredUsers()];
     const sortKey = this.sortBy();
+    const order = this.sortOrder() === 'asc' ? 1 : -1;
     
     return users.sort((a, b) => {
-      if (sortKey === 'fecha') {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      } else if (sortKey === 'nombre') {
-        return a.fullName.localeCompare(b.fullName);
-      } else if (sortKey === 'email') {
-        return a.email.localeCompare(b.email);
+      let comparison = 0;
+      switch (sortKey) {
+        case 'date':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'username':
+          comparison = a.username.localeCompare(b.username);
+          break;
+        case 'role':
+          comparison = a.role.localeCompare(b.role);
+          break;
+        case 'status':
+          comparison = (a.isActive === b.isActive) ? 0 : (a.isActive ? -1 : 1);
+          break;
+        case 'lastAccess':
+           const dateA = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+           const dateB = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+           comparison = dateA - dateB;
+           break;
       }
-      return 0;
+      return comparison * order;
     });
   });
 
@@ -150,8 +207,55 @@ export class UsuariosComponent implements OnInit {
     this.currentPage.set(1);
   }
 
-  onSortChange(sortKey: 'fecha' | 'nombre' | 'email'): void {
-    this.sortBy.set(sortKey);
+  onSortChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.sortBy.set(select.value as any);
+  }
+
+  toggleSortOrder(): void {
+    this.sortOrder.update(order => order === 'asc' ? 'desc' : 'asc');
+  }
+
+  toggleFilters(): void {
+    this.showFilters.update(v => !v);
+  }
+
+  onDateStartChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterDateStart.set(input.value || null);
+    this.currentPage.set(1);
+  }
+
+  onDateEndChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterDateEnd.set(input.value || null);
+    this.currentPage.set(1);
+  }
+
+  onRoleChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.filterRole.set(select.value);
+    this.currentPage.set(1);
+  }
+
+  onStatusChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.filterStatus.set(select.value);
+    this.currentPage.set(1);
+  }
+
+  clearFilters(): void {
+    this.searchTerm.set('');
+    this.filterDateStart.set(null);
+    this.filterDateEnd.set(null);
+    this.filterRole.set('');
+    this.filterStatus.set('');
+    this.currentPage.set(1);
+  }
+
+  resetSort(): void {
+    this.sortBy.set('date');
+    this.sortOrder.set('desc');
   }
 
   onSubmit(): void {
