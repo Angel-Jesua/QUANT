@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
-import { UsersService, User, CreateUserData } from '../shared/services/users.service';
+import { UsersService, User, CreateUserData, UpdateUserData } from '../shared/services/users.service';
 import { UserProfileService } from '../shared/services/user-profile.service';
 
 interface PaginatedUsers {
@@ -47,6 +47,10 @@ export class UsuariosComponent implements OnInit {
   readonly pageSize = 4;
   readonly selectedPhoto = signal<string | null>(null);
   readonly photoFile = signal<File | null>(null);
+  
+  // Edit mode signals
+  readonly isEditing = signal<boolean>(false);
+  readonly editingUserId = signal<number | null>(null);
   
   registrationForm: FormGroup;
   showForm = signal<boolean>(true);
@@ -258,6 +262,65 @@ export class UsuariosComponent implements OnInit {
     this.sortOrder.set('desc');
   }
 
+  startEdit(user: User): void {
+    this.isEditing.set(true);
+    this.editingUserId.set(user.id);
+    this.showForm.set(true);
+
+    // Remove validators for fields not needed in edit or not available
+    this.registrationForm.get('password')?.clearValidators();
+    this.registrationForm.get('password')?.updateValueAndValidity();
+    
+    this.registrationForm.get('cedula')?.clearValidators();
+    this.registrationForm.get('cedula')?.updateValueAndValidity();
+
+    this.registrationForm.patchValue({
+      username: user.username,
+      email: user.email,
+      rol: user.role,
+      cedula: '000-000000-0000A', // Dummy value
+      password: ''
+    });
+    
+    // Handle profile image if exists
+    if (user.profileImageUrl) {
+      this.selectedPhoto.set(user.profileImageUrl);
+    } else {
+      this.selectedPhoto.set(null);
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelEdit(): void {
+    this.isEditing.set(false);
+    this.editingUserId.set(null);
+    this.registrationForm.reset();
+    this.selectedPhoto.set(null);
+    this.photoFile.set(null);
+    
+    // Restore validators
+    this.registrationForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
+    this.registrationForm.get('password')?.updateValueAndValidity();
+    
+    this.registrationForm.get('cedula')?.setValidators([Validators.required, Validators.pattern(/^\d{3}-\d{6}-\d{4}[A-Z]$/)]);
+    this.registrationForm.get('cedula')?.updateValueAndValidity();
+  }
+
+  private finalizeUpdate(user: User, customSuccessMessage?: string): void {
+    this.isLoading.set(false);
+    this.successMessage.set(customSuccessMessage || 'Usuario actualizado exitosamente');
+    this.cancelEdit();
+    this.loadUsers();
+    
+    const currentProfile = this.profileService.snapshot;
+    if (currentProfile && currentProfile.id === user.id) {
+      this.profileService.loadProfile(true).subscribe();
+    }
+    
+    setTimeout(() => this.successMessage.set(''), 3000);
+  }
+
   onSubmit(): void {
     if (this.registrationForm.valid) {
       this.isLoading.set(true);
@@ -265,63 +328,100 @@ export class UsuariosComponent implements OnInit {
       this.successMessage.set('');
 
       const formData = this.registrationForm.value;
-      const userData: CreateUserData = {
-        username: formData.username.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        fullName: formData.username.trim(),
-        role: formData.rol.toLowerCase()
-      };
 
-      this.usersService.createUser(userData).subscribe({
-        next: (response) => {
-          // If there's a profile photo, upload it
-          const photoFile = this.photoFile();
-          if (photoFile && response.data?.id) {
-            this.usersService.uploadProfileImage(response.data.id, photoFile).subscribe({
-              next: (updatedUser) => {
-                this.isLoading.set(false);
-                this.successMessage.set('Usuario y foto de perfil registrados exitosamente');
-                this.registrationForm.reset();
-                this.selectedPhoto.set(null);
-                this.photoFile.set(null);
-                this.loadUsers();
-                
-                // Refresh profile in sidebar if current user was updated
-                const currentProfile = this.profileService.snapshot;
-                if (currentProfile && currentProfile.id === updatedUser.id) {
-                  this.profileService.loadProfile(true).subscribe();
-                }
-                
-                setTimeout(() => this.successMessage.set(''), 3000);
-              },
-              error: (error) => {
-                this.isLoading.set(false);
-                console.error('Error uploading profile image:', error);
-                this.errorMessage.set('Usuario creado, pero falló la subida de la imagen');
-                this.loadUsers();
-                setTimeout(() => this.errorMessage.set(''), 3000);
-              }
-            });
-          } else {
+      if (this.isEditing()) {
+        const userId = this.editingUserId();
+        if (!userId) return;
+
+        const updateData: UpdateUserData = {
+          username: formData.username.trim(),
+          email: formData.email.trim().toLowerCase(),
+          fullName: formData.username.trim(),
+          role: formData.rol.toLowerCase()
+        };
+
+        this.usersService.updateUser(userId, updateData).subscribe({
+          next: (updatedUser) => {
+             const photoFile = this.photoFile();
+             if (photoFile) {
+               this.usersService.uploadProfileImage(updatedUser.id, photoFile).subscribe({
+                 next: (userWithPhoto) => {
+                   this.finalizeUpdate(userWithPhoto);
+                 },
+                 error: (error) => {
+                   console.error('Error uploading profile image:', error);
+                   this.finalizeUpdate(updatedUser, 'Usuario actualizado, pero hubo un error al subir la imagen');
+                 }
+               });
+             } else {
+               this.finalizeUpdate(updatedUser);
+             }
+          },
+          error: (error) => {
             this.isLoading.set(false);
-            this.successMessage.set('Usuario registrado exitosamente');
-            this.registrationForm.reset();
-            this.selectedPhoto.set(null);
-            this.photoFile.set(null);
-            this.loadUsers();
-            setTimeout(() => this.successMessage.set(''), 3000);
+            console.error('Error updating user:', error);
+            this.errorMessage.set(error.error?.message || error.error?.error || 'Error al actualizar usuario');
           }
-        },
-        error: (error) => {
-          this.isLoading.set(false);
-          this.errorMessage.set(error.error?.message || 'Error al registrar usuario');
-          
-          setTimeout(() => this.errorMessage.set(''), 5000);
-        }
-      });
+        });
+      } else {
+        const userData: CreateUserData = {
+          username: formData.username.trim(),
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          fullName: formData.username.trim(),
+          role: formData.rol.toLowerCase()
+        };
+
+        this.usersService.createUser(userData).subscribe({
+          next: (response) => {
+            const photoFile = this.photoFile();
+            if (photoFile && response.data?.id) {
+              this.usersService.uploadProfileImage(response.data.id, photoFile).subscribe({
+                next: (updatedUser) => {
+                  this.isLoading.set(false);
+                  this.successMessage.set('Usuario y foto de perfil registrados exitosamente');
+                  this.registrationForm.reset();
+                  this.selectedPhoto.set(null);
+                  this.photoFile.set(null);
+                  this.loadUsers();
+                  
+                  const currentProfile = this.profileService.snapshot;
+                  if (currentProfile && currentProfile.id === updatedUser.id) {
+                    this.profileService.loadProfile(true).subscribe();
+                  }
+                  
+                  setTimeout(() => this.successMessage.set(''), 3000);
+                },
+                error: (error) => {
+                  this.isLoading.set(false);
+                  console.error('Error uploading profile image:', error);
+                  this.successMessage.set('Usuario registrado, pero hubo un error al subir la imagen');
+                  this.registrationForm.reset();
+                  this.selectedPhoto.set(null);
+                  this.photoFile.set(null);
+                  this.loadUsers();
+                  setTimeout(() => this.successMessage.set(''), 3000);
+                }
+              });
+            } else {
+              this.isLoading.set(false);
+              this.successMessage.set('Usuario registrado exitosamente');
+              this.registrationForm.reset();
+              this.selectedPhoto.set(null);
+              this.photoFile.set(null);
+              this.loadUsers();
+              setTimeout(() => this.successMessage.set(''), 3000);
+            }
+          },
+          error: (error) => {
+            this.isLoading.set(false);
+            console.error('Error creating user:', error);
+            this.errorMessage.set(error.error?.message || 'Error al registrar usuario');
+          }
+        });
+      }
     } else {
-      this.markFormGroupTouched(this.registrationForm);
+      this.registrationForm.markAllAsTouched();
     }
   }
 
@@ -331,13 +431,7 @@ export class UsuariosComponent implements OnInit {
     });
   }
 
-  onCancel(): void {
-    this.registrationForm.reset();
-    this.selectedPhoto.set(null);
-    this.photoFile.set(null);
-    this.errorMessage.set('');
-    this.successMessage.set('');
-  }
+
 
   onFileSelect(event: Event): void {
     const input = event.target as HTMLInputElement;

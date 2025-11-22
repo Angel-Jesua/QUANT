@@ -10,7 +10,7 @@
       <div class="content-card">
         <div class="card-header">
           <div class="header-left">
-            <h2 class="section-title">Registro de Usuarios</h2>
+            <h2 class="section-title">{{ isEditing() ? 'Editar Usuario' : 'Registro de Usuarios' }}</h2>
             <span class="active-users-link">Usuarios Activos: {{ activeUsersCount() }}</span>
           </div>
           <div class="control-module">
@@ -105,7 +105,7 @@
                   [class.error]="registrationForm.get('email')?.invalid && registrationForm.get('email')?.touched"
                 />
               </div>
-              <div class="form-field">
+              <div class="form-field" *ngIf="!isEditing()">
                 <label for="password" class="field-label">Contraseña:</label>
                 <input
                   id="password"
@@ -166,9 +166,9 @@
               </div>
             </div>
             <div class="form-actions">
-              <button type="button" class="btn-cancel" (click)="onCancel()">Cancelar</button>
+              <button type="button" class="btn-cancel" (click)="cancelEdit()">Cancelar</button>
               <button type="submit" class="btn-register" [disabled]="isLoading()">
-                {{ isLoading() ? 'Registrando...' : 'Registrar' }}
+                {{ isLoading() ? (isEditing() ? 'Actualizando...' : 'Registrando...') : (isEditing() ? 'Actualizar' : 'Registrar') }}
               </button>
             </div>
           </form>
@@ -210,6 +210,12 @@
                 </label>
               </div>
               <div class="table-cell acciones-col">
+                <button class="action-btn" (click)="startEdit(user)" [attr.aria-label]="'Editar usuario ' + user.fullName" title="Editar">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="#292D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="#292D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
                 <button class="action-btn" (click)="viewUser(user)" [attr.aria-label]="'Ver detalles de ' + user.fullName">
                   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M1.33594 16C1.33594 16 6.66927 5.33334 16.0026 5.33334C25.3359 5.33334 30.6693 16 30.6693 16C30.6693 16 25.3359 26.6667 16.0026 26.6667C6.66927 26.6667 1.33594 16 1.33594 16Z" stroke="#292D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

@@ -1,0 +1,286 @@
+<div class="page-container">
+  <app-sidebar></app-sidebar>
+  
+  <div class="main-content">
+    <header class="page-header">
+      <h1 class="page-title">IURIS CONSULTUS S.A</h1>
+    </header>
+
+    <div class="content-wrapper">
+      <div class="card-container">
+        
+        <!-- Registration Section -->
+        <div class="registration-section">
+          <h2 class="section-title">Registro de Clientes</h2>
+          <p class="active-clients">Clientes Activos</p>
+
+          <!-- Search and Sort Controls -->
+          <div class="controls-row">
+            <div class="search-box">
+              <svg class="search-icon" width="25" height="26" viewBox="0 0 25 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.4528 20.5677C16.0529 20.5677 19.782 16.6905 19.782 11.9076C19.782 7.12479 16.0529 3.24754 11.4528 3.24754C6.85267 3.24754 3.12354 7.12479 3.12354 11.9076C3.12354 16.6905 6.85267 20.5677 11.4528 20.5677Z" stroke="#7E7E7E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21.8645 22.7328L17.3354 18.0238" stroke="#7E7E7E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <input 
+                type="text" 
+                placeholder="Buscar" 
+                class="search-input"
+                (input)="onSearch($event)"
+                [value]="searchTerm()"
+              />
+            </div>
+
+            <div class="sort-box">
+              <select class="sort-select" (change)="onSortChange($event)">
+                <option value="">Ordenar por :</option>
+                <option value="nombre">Nombre</option>
+                <option value="fecha">Fecha</option>
+                <option value="tipo">Tipo</option>
+              </select>
+              <svg class="chevron-icon" width="19" height="20" viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.68506 7.30696L9.37026 12.1783L14.0555 7.30696" stroke="#3D3C42" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Registration Form -->
+          <form [formGroup]="registrationForm" (ngSubmit)="onSubmit()" class="registration-form">
+            <div class="form-grid">
+              <!-- Row 1 -->
+              <div class="form-field">
+                <label class="form-label">Cliente:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese nombre del cliente"
+                  formControlName="nombre"
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Teléfono:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese número de contacto"
+                  formControlName="telefono"
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">País</label>
+                <select class="form-select" formControlName="pais">
+                  <option value="">Seleccione el pais</option>
+                  <option value="Nicaragua">Nicaragua</option>
+                  <option value="Honduras">Honduras</option>
+                  <option value="El Salvador">El Salvador</option>
+                  <option value="Costa Rica">Costa Rica</option>
+                  <option value="Guatemala">Guatemala</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Contrato</label>
+                <select class="form-select" formControlName="contrato">
+                  <option value="">Seleccione el tipo de contrato</option>
+                  <option value="Suministro">Suministro</option>
+                  <option value="Servicio">Servicio</option>
+                  <option value="Consultoría">Consultoría</option>
+                </select>
+              </div>
+
+              <!-- Row 2 -->
+              <div class="form-field form-field-tipo">
+                <label class="form-label">Tipo de Cliente</label>
+                <select class="form-select" formControlName="tipoCliente">
+                  <option value="">Seleccione tipo de cliente</option>
+                  <option value="Jurídica">Jurídica</option>
+                  <option value="Natural">Natural</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Email:</label>
+                <input 
+                  type="email" 
+                  class="form-input" 
+                  placeholder="Ingrese correo electrónico"
+                  formControlName="email"
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Ciudad/Departamento:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese la Ciudad del cliente"
+                  formControlName="ciudad"
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="form-label">Limite de credito:</label>
+                <input 
+                  type="number" 
+                  class="form-input" 
+                  placeholder="Ingrese el limite de credito"
+                  formControlName="limiteCredito"
+                />
+              </div>
+
+              <!-- Row 3 -->
+              <div class="form-field">
+                <label class="form-label">RUC:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese número RUC"
+                  formControlName="ruc"
+                />
+              </div>
+
+              <div class="form-field form-field-direccion">
+                <label class="form-label">Dirección:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese dirección actual"
+                  formControlName="direccion"
+                />
+              </div>
+
+              <div class="form-field form-field-pais-input">
+                <label class="form-label">País:</label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Ingrese el Pais del cliente"
+                  formControlName="pais"
+                />
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" (click)="onCancel()">Cancel</button>
+              <button type="submit" class="btn-register" [disabled]="isLoading()">
+                {{ isLoading() ? 'Registrando...' : 'Registrar' }}
+              </button>
+            </div>
+          </form>
+
+          <!-- Messages -->
+          @if (successMessage()) {
+            <div class="success-message">{{ successMessage() }}</div>
+          }
+          @if (errorMessage()) {
+            <div class="error-message">{{ errorMessage() }}</div>
+          }
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-section">
+          <div class="table-wrapper">
+            <table class="clientes-table">
+              <thead>
+                <tr>
+                  <th>Cliente/RUC</th>
+                  <th>Tipo de Contrato</th>
+                  <th>Tipo de Cliente</th>
+                  <th>Contacto Principal</th>
+                  <th>Ubicación</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cliente of paginatedData().clientes; track cliente.id) {
+                  <tr>
+                    <td>
+                      <div class="cliente-info">
+                        <div class="cliente-nombre">{{ cliente.nombre }}</div>
+                        <div class="cliente-ruc">{{ cliente.clienteRuc }}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="cliente-info">
+                        <div class="cliente-contrato">{{ cliente.tipoContrato }}</div>
+                        <div class="cliente-numero-ruc">{{ cliente.numeroRuc }}</div>
+                      </div>
+                    </td>
+                    <td>{{ cliente.tipoCliente }}</td>
+                    <td>
+                      <div class="contacto-info">
+                        <div class="contacto-email">{{ cliente.email }}</div>
+                        <div class="contacto-telefono">{{ cliente.telefono }}</div>
+                      </div>
+                    </td>
+                    <td>{{ cliente.pais }}</td>
+                    <td>
+                      <div class="toggle-switch" 
+                           [class.active]="cliente.isActive"
+                           (click)="toggleClienteStatus(cliente)">
+                        <div class="toggle-knob"></div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="action-buttons">
+                        <button class="btn-action btn-view" (click)="viewCliente(cliente)" title="Ver">
+                          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2 24C2 24 10 8 24 8C38 8 46 24 46 24C46 24 38 40 24 40C10 40 2 24 2 24Z" stroke="#1E1E1E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M24 30C27.3137 30 30 27.3137 30 24C30 20.6863 27.3137 18 24 18C20.6863 18 18 20.6863 18 24C18 27.3137 20.6863 30 24 30Z" stroke="#1E1E1E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                        <button class="btn-action btn-edit" (click)="editCliente(cliente)" title="Editar">
+                          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 8H8C6.93913 8 5.92172 8.42142 5.17157 9.17157C4.42143 9.92171 4 10.9391 4 12V40C4 41.0609 4.42143 42.0783 5.17157 42.8284C5.92172 43.5786 6.93913 44 8 44H36C37.0609 44 38.0783 43.5786 38.8284 42.8284C39.5786 42.0783 40 41.0609 40 40V26M37 5C37.7956 4.20435 38.8748 3.75735 40 3.75735C41.1252 3.75735 42.2044 4.20435 43 5C43.7956 5.79564 44.2426 6.87478 44.2426 8C44.2426 9.12521 43.7956 10.2043 43 11L24 30L16 32L18 24L37 5Z" stroke="#1E1E1E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="7" class="no-data">No hay clientes registrados</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="pagination">
+            <button 
+              class="pagination-btn" 
+              (click)="prevPage()"
+              [disabled]="currentPage() === 1">
+              &lt;
+            </button>
+
+            @for (page of pageNumbers(); track page) {
+              @if (isNumber(page)) {
+                <button 
+                  class="pagination-btn"
+                  [class.active]="page === currentPage()"
+                  (click)="goToPage(page)">
+                  {{ page }}
+                </button>
+              } @else {
+                <span class="pagination-ellipsis">{{ page }}</span>
+              }
+            }
+
+            <button 
+              class="pagination-btn" 
+              (click)="nextPage()"
+              [disabled]="currentPage() === paginatedData().totalPages">
+              &gt;
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
