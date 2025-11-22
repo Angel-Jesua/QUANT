@@ -1,0 +1,99 @@
+<div class="page-container">
+  <app-sidebar></app-sidebar>
+  
+  <div class="main-content">
+    <header class="page-header">
+      <div class="header-content">
+        <button class="btn-back" (click)="goBack()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Volver
+        </button>
+        <h1 class="page-title">Detalle del Cliente</h1>
+      </div>
+    </header>
+
+    <div class="content-wrapper">
+      @if (isLoading()) {
+        <div class="loading-state">Cargando información...</div>
+      } @else if (error()) {
+        <div class="error-state">{{ error() }}</div>
+      } @else if (client()) {
+        <div class="detail-card">
+          <div class="card-header">
+            <div class="client-avatar">
+              {{ client()?.name?.charAt(0) }}
+            </div>
+            <div class="client-main-info">
+              <h2>{{ client()?.name }}</h2>
+              <span class="client-code">{{ client()?.clientCode }}</span>
+              <span class="status-badge" [class.active]="client()?.isActive">
+                {{ client()?.isActive ? 'Activo' : 'Inactivo' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-section">
+              <h3>Información General</h3>
+              <div class="info-row">
+                <span class="label">RUC/Tax ID:</span>
+                <span class="value">{{ client()?.taxId || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Email:</span>
+                <span class="value">{{ client()?.email || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Teléfono:</span>
+                <span class="value">{{ client()?.phone || 'N/A' }}</span>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3>Ubicación</h3>
+              <div class="info-row">
+                <span class="label">País:</span>
+                <span class="value">{{ client()?.country }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Ciudad:</span>
+                <span class="value">{{ client()?.city || 'N/A' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Dirección:</span>
+                <span class="value">{{ client()?.address || 'N/A' }}</span>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3>Información Financiera</h3>
+              <div class="info-row">
+                <span class="label">Límite de Crédito:</span>
+                <span class="value">{{ client()?.creditLimit | currency }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Moneda:</span>
+                <span class="value">{{ client()?.currencyId === 1 ? 'USD' : 'Local' }}</span>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3>Auditoría</h3>
+              <div class="info-row">
+                <span class="label">Creado el:</span>
+                <span class="value">{{ client()?.createdAt | date:'medium' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Actualizado el:</span>
+                <span class="value">{{ client()?.updatedAt | date:'medium' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

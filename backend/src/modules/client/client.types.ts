@@ -57,18 +57,6 @@ export type PhoneE164 = Brand<string, 'PhoneE164'>;
 export type CountryCode = Brand<string, 'CountryCode'>;
 
 /**
- * StateCode: string de 1–8 caracteres, apropiado al país (no se valida lista específica aquí).
- * Ejemplos: "MN", "DLI", "LEON-1".
- */
-export type StateCode = Brand<string, 'StateCode'>;
-
-/**
- * PostalCode: string de 1–16 caracteres.
- * Ejemplos: "11001", "505-1100".
- */
-export type PostalCode = Brand<string, 'PostalCode'>;
-
-/**
  * CurrencyId: entero positivo que identifica la moneda.
  */
 export type CurrencyId = Brand<number, 'CurrencyId'>;
@@ -110,14 +98,6 @@ export interface BaseClientFields {
   name?: string;
 
   /**
-   * Nombre de contacto principal.
-   * - Formato: string.
-   * - Ejemplo: "María López"
-   * - Admite: string o null (para limpiar), undefined si no se provee.
-   */
-  contactName?: string | null;
-
-  /**
    * Correo electrónico de contacto.
    * - Formato: Email válido (RFC5322 simplificado).
    * - Ejemplo: "contabilidad@iurus.com"
@@ -150,28 +130,12 @@ export interface BaseClientFields {
   city?: string | null;
 
   /**
-   * Código de estado/departamento/provincia.
-   * - Formato: StateCode (1–8 caracteres).
-   * - Ejemplo: "MN"
-   * - Admite: StateCode o null, undefined si no se provee.
-   */
-  state?: StateCode | null;
-
-  /**
    * Código de país ISO 3166-1 alfa-2 en mayúsculas.
    * - Formato: CountryCode (2 letras en mayúsculas).
    * - Ejemplo: "NI"
    * - Admite: CountryCode, undefined si no se provee (el backend puede aplicar un valor por defecto).
    */
   country?: CountryCode;
-
-  /**
-   * Código postal.
-   * - Formato: PostalCode (1–16 caracteres).
-   * - Ejemplo: "11001"
-   * - Admite: PostalCode o null, undefined si no se provee.
-   */
-  postalCode?: PostalCode | null;
 
   /**
    * Límite de crédito.
@@ -274,14 +238,11 @@ export interface IClient {
   clientCode: string;
   taxId?: string | null;
   name: string;
-  contactName?: string | null;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
   city?: string | null;
-  state?: string | null;
   country: string;
-  postalCode?: string | null;
   creditLimit: Prisma.Decimal;
   currencyId: number;
   isActive: boolean;
@@ -316,14 +277,11 @@ export interface Client {
   clientCode: ClientCode;
   taxId?: TaxId | null;
   name: string;
-  contactName?: string | null;
   email?: Email | null;
   phone?: PhoneE164 | null;
   address?: string | null;
   city?: string | null;
-  state?: StateCode | null;
   country: CountryCode;
-  postalCode?: PostalCode | null;
   creditLimit: Prisma.Decimal;
   currencyId: CurrencyId;
   isActive: boolean;
@@ -346,13 +304,13 @@ export type ClientOrderByField =
   | 'createdAt'
   | 'updatedAt'
   | 'country'
-  | 'currencyId';
+  | 'currencyId'
+  | 'isActive';
 
 /**
  * Filtros y opciones de paginación/orden para obtener clientes.
  * - isActive: filtra por estado activo/inactivo
  * - countryCode: CountryCode (ISO 3166-1 alfa-2)
- * - stateCode: StateCode (1–8 chars)
  * - currencyId: CurrencyId (entero positivo)
  * - search: coincidencia parcial (insensible a mayúsculas) en clientCode, name o taxId
  * - limit/offset: paginación
@@ -361,13 +319,14 @@ export type ClientOrderByField =
 export interface ClientListFilters {
   isActive?: boolean;
   countryCode?: CountryCode;
-  stateCode?: StateCode;
   currencyId?: CurrencyId;
   search?: string;
   limit?: number;
   offset?: number;
   orderBy?: ClientOrderByField;
   orderDir?: 'asc' | 'desc';
+  startDate?: Date;
+  endDate?: Date;
 }
 
 /**
@@ -406,10 +365,6 @@ export function isCreateClientInput(value: unknown): value is CreateClientInput 
     if (t.length < 1 || t.length > 32) return false;
   }
 
-  if (v.contactName !== undefined && v.contactName !== null) {
-    if (!isString(v.contactName)) return false;
-  }
-
   if (v.email !== undefined && v.email !== null) {
     if (!isString(v.email)) return false;
     if (!isEmail(v.email)) return false;
@@ -428,21 +383,9 @@ export function isCreateClientInput(value: unknown): value is CreateClientInput 
     if (!isString(v.city)) return false;
   }
 
-  if (v.state !== undefined && v.state !== null) {
-    if (!isString(v.state)) return false;
-    const s = v.state.trim();
-    if (s.length < 1 || s.length > 8) return false;
-  }
-
   if (v.country !== undefined) {
     if (!isString(v.country)) return false;
     if (!isIsoAlpha2Upper(v.country)) return false;
-  }
-
-  if (v.postalCode !== undefined && v.postalCode !== null) {
-    if (!isString(v.postalCode)) return false;
-    const p = v.postalCode.trim();
-    if (p.length < 1 || p.length > 16) return false;
   }
 
   if (v.creditLimit !== undefined && v.creditLimit !== null) {
@@ -472,14 +415,11 @@ export function isUpdateClientInput(value: unknown): value is UpdateClientInput 
     'clientCode',
     'taxId',
     'name',
-    'contactName',
     'email',
     'phone',
     'address',
     'city',
-    'state',
     'country',
-    'postalCode',
     'creditLimit',
     'currencyId',
     'isActive',
@@ -507,10 +447,6 @@ export function isUpdateClientInput(value: unknown): value is UpdateClientInput 
     if (v.name.trim().length === 0) return false;
   }
 
-  if (v.contactName !== undefined) {
-    if (v.contactName !== null && !isString(v.contactName)) return false;
-  }
-
   if (v.email !== undefined) {
     if (v.email !== null && !isString(v.email)) return false;
     if (isString(v.email) && !isEmail(v.email)) return false;
@@ -529,25 +465,9 @@ export function isUpdateClientInput(value: unknown): value is UpdateClientInput 
     if (v.city !== null && !isString(v.city)) return false;
   }
 
-  if (v.state !== undefined) {
-    if (v.state !== null && !isString(v.state)) return false;
-    if (isString(v.state)) {
-      const s = v.state.trim();
-      if (s.length < 1 || s.length > 8) return false;
-    }
-  }
-
   if (v.country !== undefined) {
     if (!isString(v.country)) return false;
     if (!isIsoAlpha2Upper(v.country)) return false;
-  }
-
-  if (v.postalCode !== undefined) {
-    if (v.postalCode !== null && !isString(v.postalCode)) return false;
-    if (isString(v.postalCode)) {
-      const p = v.postalCode.trim();
-      if (p.length < 1 || p.length > 16) return false;
-    }
   }
 
   if (v.creditLimit !== undefined) {

@@ -1,31 +1,9 @@
 import { Component, ChangeDetectionStrategy, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
-
-interface Cliente {
-  id: number;
-  clienteRuc: string;
-  numeroRuc: string;
-  nombre: string;
-  tipoCliente: string;
-  tipoContrato: string;
-  telefono: string;
-  email: string;
-  ciudad: string;
-  pais: string;
-  direccion: string;
-  limiteCredito: number;
-  isActive: boolean;
-}
-
-interface PaginatedClientes {
-  clientes: Cliente[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+import { ClientService, Client, CreateClientDTO } from '../services/client.service';
 
 @Component({
   selector: 'app-clientes',
@@ -37,30 +15,28 @@ interface PaginatedClientes {
 })
 export class ClientesComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly clientService = inject(ClientService);
+  private readonly router = inject(Router);
 
-  readonly clientes = signal<Cliente[]>([
-    {
-      id: 1,
-      clienteRuc: 'CL-2024-001',
-      numeroRuc: 'J0310000023',
-      nombre: 'Inversiones del Norte S.A.',
-      tipoCliente: 'Jurídica',
-      tipoContrato: 'Suministro',
-      telefono: '+505 8888-2222',
-      email: 'contacto@idnorte.com',
-      ciudad: 'Managua',
-      pais: 'Nicaragua',
-      direccion: 'Km 5 Carretera Norte',
-      limiteCredito: 50000,
-      isActive: true
-    }
-  ]);
-
+  readonly clientes = signal<Client[]>([]);
   readonly isLoading = signal<boolean>(false);
   readonly searchTerm = signal<string>('');
   readonly sortBy = signal<string>('');
+  readonly sortOrder = signal<'asc' | 'desc'>('asc');
+  
+  // Filter signals
+  readonly filterDateStart = signal<string | null>(null);
+  readonly filterDateEnd = signal<string | null>(null);
+  readonly filterStatus = signal<string>('');
+  readonly filterCountry = signal<string>('');
+  readonly showFilters = signal<boolean>(false);
+
   readonly currentPage = signal<number>(1);
   readonly pageSize = 4;
+  
+  // Pagination state
+  readonly totalItems = signal<number>(0);
+  readonly totalPages = signal<number>(0);
   
   registrationForm: FormGroup;
   errorMessage = signal<string>('');
@@ -70,168 +46,246 @@ export class ClientesComponent implements OnInit {
     this.clientes().filter(cliente => cliente.isActive).length
   );
 
-  readonly filteredClientes = computed(() => {
-    const search = this.searchTerm().toLowerCase();
-    const allClientes = this.clientes();
-    
-    if (!search) return allClientes;
-    
-    return allClientes.filter(cliente => 
-      cliente.nombre.toLowerCase().includes(search) ||
-      cliente.clienteRuc.toLowerCase().includes(search) ||
-      cliente.email.toLowerCase().includes(search) ||
-      cliente.numeroRuc.toLowerCase().includes(search)
-    );
+  readonly hasActiveFilters = computed(() => {
+    return !!(this.searchTerm() || this.filterDateStart() || this.filterDateEnd() || this.filterStatus() || this.filterCountry());
   });
 
-  readonly paginatedData = computed((): PaginatedClientes => {
-    const allClientes = this.filteredClientes();
-    const page = this.currentPage();
-    const size = this.pageSize;
-    const start = (page - 1) * size;
-    const end = start + size;
-    
+  readonly paginatedData = computed(() => {
     return {
-      clientes: allClientes.slice(start, end),
-      total: allClientes.length,
-      page,
-      pageSize: size,
-      totalPages: Math.ceil(allClientes.length / size)
+      clientes: this.clientes(),
+      total: this.totalItems(),
+      page: this.currentPage(),
+      pageSize: this.pageSize,
+      totalPages: this.totalPages()
     };
   });
 
   readonly pageNumbers = computed(() => {
-    const total = this.paginatedData().totalPages;
+    const total = this.totalPages();
     const current = this.currentPage();
-    const pages: (number | string)[] = [];
-    
-    if (total <= 7) {
-      for (let i = 1; i <= total; i++) {
-        pages.push(i);
+    const delta = 2;
+    const range = [];
+    const rangeWithDots: (number | string)[] = [];
+    let l: number | undefined;
+
+    range.push(1);
+    for (let i = current - delta; i <= current + delta; i++) {
+      if (i < total && i > 1) {
+        range.push(i);
       }
-    } else {
-      pages.push(1);
-      if (current > 3) pages.push('...');
-      
-      for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-        pages.push(i);
-      }
-      
-      if (current < total - 2) pages.push('...');
-      pages.push(total);
     }
-    
-    return pages;
+    if (total > 1) range.push(total);
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
   });
 
   constructor() {
     this.registrationForm = this.fb.group({
-      nombre: ['', [Validators.required, Validators.minLength(3)]],
-      telefono: ['', [Validators.required]],
+      nombre: ['', Validators.required],
+      telefono: ['', Validators.required],
+      pais: ['', Validators.required],
+      contrato: [''],
+      tipoCliente: [''],
       email: ['', [Validators.required, Validators.email]],
-      ruc: ['', [Validators.required]],
-      tipoCliente: ['', [Validators.required]],
-      ciudad: ['', [Validators.required]],
-      pais: ['', [Validators.required]],
-      direccion: ['', [Validators.required]],
-      limiteCredito: ['', [Validators.required, Validators.min(0)]],
-      contrato: ['', [Validators.required]]
+      ciudad: [''],
+      limiteCredito: [''],
+      ruc: ['', Validators.required],
+      direccion: [''],
+      clientCode: ['']
     });
   }
 
-  ngOnInit(): void {
-    // Future: Load clientes from API
+  ngOnInit() {
+    this.loadClients();
   }
 
-  onSearch(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.searchTerm.set(input.value);
+  loadClients() {
+    this.isLoading.set(true);
+    
+    const filters = {
+      isActive: this.filterStatus() ? this.filterStatus() === 'active' : undefined,
+      country: this.filterCountry() || undefined,
+      startDate: this.filterDateStart() || undefined,
+      endDate: this.filterDateEnd() || undefined
+    };
+
+    this.clientService.getClients(
+      this.currentPage(), 
+      this.pageSize, 
+      this.searchTerm(),
+      this.sortBy(),
+      this.sortOrder(),
+      filters
+    )
+      .subscribe({
+        next: (response) => {
+          this.clientes.set(response.data);
+          this.totalItems.set(response.meta.total);
+          this.totalPages.set(response.meta.totalPages);
+          this.isLoading.set(false);
+        },
+        error: (err) => {
+          console.error('Error loading clients', err);
+          this.errorMessage.set('Error al cargar clientes');
+          this.isLoading.set(false);
+        }
+      });
+  }
+
+  onSearch(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.searchTerm.set(target.value);
     this.currentPage.set(1);
+    this.loadClients();
   }
 
-  onSortChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    this.sortBy.set(select.value);
+  onSortChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    const value = target.value;
+    
+    if (!value) {
+      this.sortBy.set('');
+      this.sortOrder.set('asc');
+    } else {
+      const [field, order] = value.split('-');
+      this.sortBy.set(field);
+      this.sortOrder.set(order as 'asc' | 'desc');
+    }
+    
+    this.loadClients();
   }
 
-  onSubmit(): void {
+  toggleFilters() {
+    this.showFilters.update(v => !v);
+  }
+
+  onDateStartChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.filterDateStart.set(target.value);
+    this.currentPage.set(1);
+    this.loadClients();
+  }
+
+  onDateEndChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.filterDateEnd.set(target.value);
+    this.currentPage.set(1);
+    this.loadClients();
+  }
+
+  onStatusChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.filterStatus.set(target.value);
+    this.currentPage.set(1);
+    this.loadClients();
+  }
+
+  onCountryChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.filterCountry.set(target.value);
+    this.currentPage.set(1);
+    this.loadClients();
+  }
+
+  clearFilters() {
+    this.filterDateStart.set(null);
+    this.filterDateEnd.set(null);
+    this.filterStatus.set('');
+    this.filterCountry.set('');
+    this.searchTerm.set('');
+    this.currentPage.set(1);
+    this.loadClients();
+  }
+
+  onSubmit() {
     if (this.registrationForm.valid) {
       this.isLoading.set(true);
-      this.errorMessage.set('');
-      this.successMessage.set('');
-
-      const formData = this.registrationForm.value;
+      const formValue = this.registrationForm.value;
       
-      const nuevoCliente: Cliente = {
-        id: this.clientes().length + 1,
-        clienteRuc: `CL-2024-${String(this.clientes().length + 1).padStart(3, '0')}`,
-        numeroRuc: formData.ruc,
-        nombre: formData.nombre,
-        tipoCliente: formData.tipoCliente,
-        tipoContrato: formData.contrato,
-        telefono: formData.telefono,
-        email: formData.email,
-        ciudad: formData.ciudad,
-        pais: formData.pais,
-        direccion: formData.direccion,
-        limiteCredito: formData.limiteCredito,
-        isActive: true
+      const clientCode = formValue.clientCode || `CL-${Math.floor(Math.random() * 100000)}`;
+
+      const newClient: CreateClientDTO = {
+        clientCode: clientCode,
+        taxId: formValue.ruc,
+        name: formValue.nombre,
+        email: formValue.email,
+        phone: formValue.telefono,
+        address: formValue.direccion,
+        city: formValue.ciudad,
+        country: formValue.pais,
+        creditLimit: formValue.limiteCredito ? Number(formValue.limiteCredito) : 0,
+        currencyId: 1
       };
 
-      this.clientes.update(clientes => [...clientes, nuevoCliente]);
-      
-      this.isLoading.set(false);
-      this.successMessage.set('Cliente registrado exitosamente');
-      this.registrationForm.reset();
-      
-      setTimeout(() => this.successMessage.set(''), 3000);
+      this.clientService.createClient(newClient).subscribe({
+        next: () => {
+          this.successMessage.set('Cliente registrado exitosamente');
+          this.registrationForm.reset();
+          this.loadClients();
+          setTimeout(() => this.successMessage.set(''), 3000);
+        },
+        error: (err) => {
+          console.error('Error creating client', err);
+          this.errorMessage.set(err.error?.message || 'Error al registrar cliente');
+          this.isLoading.set(false);
+          setTimeout(() => this.errorMessage.set(''), 3000);
+        }
+      });
     } else {
       this.registrationForm.markAllAsTouched();
     }
   }
 
-  onCancel(): void {
+  onCancel() {
     this.registrationForm.reset();
-    this.errorMessage.set('');
-    this.successMessage.set('');
   }
 
-  toggleClienteStatus(cliente: Cliente): void {
-    this.clientes.update(clientes => 
-      clientes.map(c => 
-        c.id === cliente.id ? { ...c, isActive: !c.isActive } : c
-      )
-    );
+  toggleClienteStatus(cliente: Client) {
+    // Implement status toggle
   }
 
-  viewCliente(cliente: Cliente): void {
-    console.log('View cliente:', cliente);
+  viewCliente(cliente: Client) {
+    this.router.navigate(['/clientes', cliente.id]);
   }
 
-  editCliente(cliente: Cliente): void {
-    console.log('Edit cliente:', cliente);
+  editCliente(cliente: Client) {
+    // Implement edit
   }
 
-  goToPage(page: number): void {
-    if (page >= 1 && page <= this.paginatedData().totalPages) {
-      this.currentPage.set(page);
-    }
-  }
-
-  nextPage(): void {
-    const totalPages = this.paginatedData().totalPages;
-    if (this.currentPage() < totalPages) {
+  nextPage() {
+    if (this.currentPage() < this.totalPages()) {
       this.currentPage.update(p => p + 1);
+      this.loadClients();
     }
   }
 
-  prevPage(): void {
+  prevPage() {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
+      this.loadClients();
     }
   }
 
-  isNumber(value: string | number): value is number {
-    return typeof value === 'number';
+  goToPage(page: number | string) {
+    if (typeof page === 'number') {
+      this.currentPage.set(page);
+      this.loadClients();
+    }
+  }
+
+  isNumber(val: any): boolean {
+    return typeof val === 'number';
   }
 }

@@ -11,9 +11,7 @@ import {
   TaxId,
   Email,
   PhoneE164,
-  StateCode,
   CountryCode,
-  PostalCode,
   MoneyNonNegative,
 } from './client.types';
 import { logErrorContext, logAuditError } from '../../utils/error';
@@ -47,15 +45,26 @@ export class ClientController {
       const currencyIdFilter = parseOptionalPositiveInt(req.query.currencyId);
       const countryCode =
         typeof req.query.countryCode === 'string' ? req.query.countryCode.trim().toUpperCase() : undefined;
-      const stateCode =
-        typeof req.query.stateCode === 'string' ? req.query.stateCode.trim() : undefined;
+      
+      const orderByParam = typeof req.query.orderBy === 'string' ? req.query.orderBy : undefined;
+      const orderDirParam = typeof req.query.orderDir === 'string' ? req.query.orderDir : undefined;
+
+      const validOrderBy = ['clientCode', 'name', 'createdAt', 'updatedAt', 'country', 'currencyId', 'isActive'];
+      const orderBy = validOrderBy.includes(orderByParam as string) ? (orderByParam as any) : undefined;
+      const orderDir = orderDirParam === 'asc' || orderDirParam === 'desc' ? orderDirParam : undefined;
+
+      const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : undefined;
+      const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : undefined;
 
       const serviceFilters: any = {
         search,
         isActive: typeof isActiveFilter === 'boolean' ? isActiveFilter : undefined,
         currencyId: typeof currencyIdFilter === 'number' ? currencyIdFilter : undefined,
         countryCode: countryCode && /^[A-Z]{2}$/.test(countryCode) ? countryCode : undefined,
-        stateCode: stateCode && stateCode.trim().length > 0 ? stateCode : undefined,
+        orderBy,
+        orderDir,
+        startDate: startDate && !isNaN(startDate.getTime()) ? startDate : undefined,
+        endDate: endDate && !isNaN(endDate.getTime()) ? endDate : undefined,
       };
 
       const list = await this.clientService.getAllClients(serviceFilters);
@@ -217,14 +226,11 @@ export class ClientController {
         name,
         currencyId: currencyIdCandidate as CurrencyId,
         taxId: typeof body.taxId === 'string' ? (body.taxId.trim() as TaxId) : undefined,
-        contactName: typeof body.contactName === 'string' ? body.contactName.trim() : undefined,
         email: typeof body.email === 'string' ? (body.email.trim() as Email) : undefined,
         phone: typeof body.phone === 'string' ? (body.phone.trim() as PhoneE164) : undefined,
         address: typeof body.address === 'string' ? body.address.trim() : undefined,
         city: typeof body.city === 'string' ? body.city.trim() : undefined,
-        state: typeof body.state === 'string' ? (body.state.trim() as StateCode) : undefined,
         country: typeof body.country === 'string' ? (body.country.trim().toUpperCase() as CountryCode) : undefined,
-        postalCode: typeof body.postalCode === 'string' ? (body.postalCode.trim() as PostalCode) : undefined,
         creditLimit:
           typeof body.creditLimit === 'number'
             ? (body.creditLimit as MoneyNonNegative)
@@ -331,14 +337,11 @@ export class ClientController {
         'clientCode',
         'taxId',
         'name',
-        'contactName',
         'email',
         'phone',
         'address',
         'city',
-        'state',
         'country',
-        'postalCode',
         'creditLimit',
         'currencyId',
         'isActive',
@@ -369,8 +372,6 @@ export class ClientController {
       if (typeof body.taxId === 'string') normalized.taxId = body.taxId.trim() as TaxId;
       if (body.taxId === null) normalized.taxId = null;
       if (typeof body.name === 'string') normalized.name = body.name.trim();
-      if (typeof body.contactName === 'string') normalized.contactName = body.contactName.trim();
-      if (body.contactName === null) normalized.contactName = null;
       if (typeof body.email === 'string') normalized.email = body.email.trim() as Email;
       if (body.email === null) normalized.email = null;
       if (typeof body.phone === 'string') normalized.phone = body.phone.trim() as PhoneE164;
@@ -379,11 +380,7 @@ export class ClientController {
       if (body.address === null) normalized.address = null;
       if (typeof body.city === 'string') normalized.city = body.city.trim();
       if (body.city === null) normalized.city = null;
-      if (typeof body.state === 'string') normalized.state = body.state.trim() as StateCode;
-      if (body.state === null) normalized.state = null;
       if (typeof body.country === 'string') normalized.country = body.country.trim().toUpperCase() as CountryCode;
-      if (typeof body.postalCode === 'string') normalized.postalCode = body.postalCode.trim() as PostalCode;
-      if (body.postalCode === null) normalized.postalCode = null;
       if (typeof body.isActive === 'boolean') normalized.isActive = body.isActive;
 
       if (body.creditLimit !== undefined) {

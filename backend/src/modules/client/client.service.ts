@@ -58,14 +58,11 @@ function mapClient(row: IClient): IClientResponse {
     clientCode: row.clientCode,
     taxId: row.taxId ?? undefined,
     name: row.name,
-    contactName: row.contactName ?? undefined,
     email: row.email ?? undefined,
     phone: row.phone ?? undefined,
     address: row.address ?? undefined,
     city: row.city ?? undefined,
-    state: row.state ?? undefined,
     country: row.country,
-    postalCode: row.postalCode ?? undefined,
     creditLimit: formatMoney(row.creditLimit),
     currencyId: row.currencyId,
     isActive: row.isActive,
@@ -101,8 +98,18 @@ export class ClientService {
 
     if (typeof filters.isActive === 'boolean') where.isActive = filters.isActive;
     if (typeof filters.countryCode === 'string') where.country = filters.countryCode;
-    if (typeof filters.stateCode === 'string') where.state = filters.stateCode;
     if (typeof filters.currencyId === 'number') where.currencyId = filters.currencyId;
+
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = filters.startDate;
+      if (filters.endDate) {
+        // Adjust end date to include the full day
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
 
     if (typeof filters.search === 'string') {
       const s = filters.search.trim();
@@ -151,14 +158,11 @@ export class ClientService {
         clientCode: row.clientCode,
         taxId: row.taxId ?? null,
         name: row.name,
-        contactName: row.contactName ?? null,
         email: row.email ?? null,
         phone: row.phone ?? null,
         address: row.address ?? null,
         city: row.city ?? null,
-        state: row.state ?? null,
         country: row.country,
-        postalCode: row.postalCode ?? null,
         creditLimit: row.creditLimit,
         currencyId: row.currencyId,
         isActive: row.isActive,
@@ -188,14 +192,11 @@ export class ClientService {
       clientCode: client.clientCode,
       taxId: client.taxId ?? null,
       name: client.name,
-      contactName: client.contactName ?? null,
       email: client.email ?? null,
       phone: client.phone ?? null,
       address: client.address ?? null,
       city: client.city ?? null,
-      state: client.state ?? null,
       country: client.country,
-      postalCode: client.postalCode ?? null,
       creditLimit: client.creditLimit,
       currencyId: client.currencyId,
       isActive: client.isActive,
@@ -233,10 +234,6 @@ export class ClientService {
       typeof data.taxId === 'string' && data.taxId.trim().length > 0
         ? data.taxId.trim().toUpperCase()
         : null;
-    const contactName =
-      typeof data.contactName === 'string' && data.contactName.trim().length > 0
-        ? data.contactName.trim()
-        : null;
     const email =
       typeof data.email === 'string' && data.email.trim().length > 0
         ? data.email.trim().toLowerCase()
@@ -253,18 +250,10 @@ export class ClientService {
       typeof data.city === 'string' && data.city.trim().length > 0
         ? data.city.trim()
         : null;
-    const state =
-      typeof data.state === 'string' && data.state.trim().length > 0
-        ? data.state.trim()
-        : null;
     const country =
       typeof data.country === 'string' && data.country.trim().length > 0
         ? data.country.trim()
         : 'Nicaragua';
-    const postalCode =
-      typeof data.postalCode === 'string' && data.postalCode.trim().length > 0
-        ? data.postalCode.trim()
-        : null;
     const creditLimitDecimal = normalizeCreditLimit(
       data.creditLimit as number | string | undefined
     );
@@ -299,14 +288,11 @@ export class ClientService {
           clientCode,
           taxId,
           name,
-          contactName,
           email,
           phone,
           address,
           city,
-          state,
           country,
-          postalCode,
           creditLimit: creditLimitDecimal,
           currencyId,
           isActive,
@@ -348,14 +334,11 @@ export class ClientService {
         clientCode: created.clientCode,
         taxId: created.taxId ?? null,
         name: created.name,
-        contactName: created.contactName ?? null,
         email: created.email ?? null,
         phone: created.phone ?? null,
         address: created.address ?? null,
         city: created.city ?? null,
-        state: created.state ?? null,
         country: created.country,
-        postalCode: created.postalCode ?? null,
         creditLimit: created.creditLimit,
         currencyId: created.currencyId,
         isActive: created.isActive,
@@ -444,13 +427,6 @@ export class ClientService {
       updateData.name = v;
     }
 
-    if (typeof data.contactName === 'string') {
-      const v = data.contactName.trim();
-      updateData.contactName = v.length > 0 ? v : null;
-    } else if (data.contactName === null) {
-      updateData.contactName = null;
-    }
-
     if (typeof data.email === 'string') {
       const v = data.email.trim().toLowerCase();
       updateData.email = v.length > 0 ? v : null;
@@ -479,22 +455,8 @@ export class ClientService {
       updateData.city = null;
     }
 
-    if (typeof data.state === 'string') {
-      const v = data.state.trim();
-      updateData.state = v.length > 0 ? v : null;
-    } else if (data.state === null) {
-      updateData.state = null;
-    }
-
     if (typeof data.country === 'string') {
       updateData.country = data.country.trim();
-    }
-
-    if (typeof data.postalCode === 'string') {
-      const v = data.postalCode.trim();
-      updateData.postalCode = v.length > 0 ? v : null;
-    } else if (data.postalCode === null) {
-      updateData.postalCode = null;
     }
 
     if (typeof data.isActive === 'boolean') {
@@ -557,14 +519,11 @@ export class ClientService {
         clientCode: updated.clientCode,
         taxId: updated.taxId ?? null,
         name: updated.name,
-        contactName: updated.contactName ?? null,
         email: updated.email ?? null,
         phone: updated.phone ?? null,
         address: updated.address ?? null,
         city: updated.city ?? null,
-        state: updated.state ?? null,
         country: updated.country,
-        postalCode: updated.postalCode ?? null,
         creditLimit: updated.creditLimit,
         currencyId: updated.currencyId,
         isActive: updated.isActive,
