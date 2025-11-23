@@ -107,4 +107,8 @@ export class ClientService {
   createClient(client: CreateClientDTO): Observable<any> {
     return this.http.post(this.apiUrl, client);
   }
+
+  updateClient(id: number, client: Partial<CreateClientDTO>): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${id}`, client);
+  }
 }

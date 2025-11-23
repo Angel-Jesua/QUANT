@@ -11,7 +11,7 @@
         
         <!-- Registration Section -->
         <div class="registration-section">
-          <h2 class="section-title">Registro de Clientes</h2>
+          <h2 class="section-title">{{ editingClientId() ? 'Editar Cliente' : 'Registro de Clientes' }}</h2>
           <p class="active-clients">Clientes Activos</p>
 
           <!-- Search and Sort Controls -->
@@ -198,7 +198,7 @@
             <div class="form-actions">
               <button type="button" class="btn-cancel" (click)="onCancel()">Cancel</button>
               <button type="submit" class="btn-register" [disabled]="isLoading()">
-                {{ isLoading() ? 'Registrando...' : 'Registrar' }}
+                {{ isLoading() ? (editingClientId() ? 'Actualizando...' : 'Registrando...') : (editingClientId() ? 'Actualizar' : 'Registrar') }}
               </button>
             </div>
           </form>

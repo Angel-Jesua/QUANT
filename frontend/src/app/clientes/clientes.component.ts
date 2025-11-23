@@ -38,6 +38,8 @@ export class ClientesComponent implements OnInit {
   readonly totalItems = signal<number>(0);
   readonly totalPages = signal<number>(0);
   
+  readonly editingClientId = signal<number | null>(null);
+
   registrationForm: FormGroup;
   errorMessage = signal<string>('');
   successMessage = signal<string>('');
@@ -214,10 +216,7 @@ export class ClientesComponent implements OnInit {
       this.isLoading.set(true);
       const formValue = this.registrationForm.value;
       
-      const clientCode = formValue.clientCode || `CL-${Math.floor(Math.random() * 100000)}`;
-
-      const newClient: CreateClientDTO = {
-        clientCode: clientCode,
+      const clientData: Partial<CreateClientDTO> = {
         taxId: formValue.ruc,
         name: formValue.nombre,
         email: formValue.email,
@@ -229,20 +228,47 @@ export class ClientesComponent implements OnInit {
         currencyId: 1
       };
 
-      this.clientService.createClient(newClient).subscribe({
-        next: () => {
-          this.successMessage.set('Cliente registrado exitosamente');
-          this.registrationForm.reset();
-          this.loadClients();
-          setTimeout(() => this.successMessage.set(''), 3000);
-        },
-        error: (err) => {
-          console.error('Error creating client', err);
-          this.errorMessage.set(err.error?.message || 'Error al registrar cliente');
-          this.isLoading.set(false);
-          setTimeout(() => this.errorMessage.set(''), 3000);
+      const editingId = this.editingClientId();
+
+      if (editingId) {
+        if (formValue.clientCode) {
+          (clientData as any).clientCode = formValue.clientCode;
         }
-      });
+
+        this.clientService.updateClient(editingId, clientData).subscribe({
+          next: () => {
+            this.successMessage.set('Cliente actualizado exitosamente');
+            this.registrationForm.reset();
+            this.editingClientId.set(null);
+            this.loadClients();
+            setTimeout(() => this.successMessage.set(''), 3000);
+          },
+          error: (err) => {
+            console.error('Error updating client', err);
+            this.errorMessage.set(err.error?.message || 'Error al actualizar cliente');
+            this.isLoading.set(false);
+            setTimeout(() => this.errorMessage.set(''), 3000);
+          }
+        });
+      } else {
+        const clientCode = formValue.clientCode || `CL-${Math.floor(Math.random() * 100000)}`;
+        const newClient = { ...clientData, clientCode } as CreateClientDTO;
+
+        this.clientService.createClient(newClient).subscribe({
+          next: () => {
+            this.successMessage.set('Cliente registrado exitosamente');
+            this.registrationForm.reset();
+            this.loadClients();
+            setTimeout(() => this.successMessage.set(''), 3000);
+          },
+          error: (err) => {
+            console.error('Error creating client', err);
+            this.errorMessage.set(err.error?.message || 'Error al registrar cliente');
+            this.isLoading.set(false);
+            setTimeout(() => this.errorMessage.set(''), 3000);
+          }
+        });
+      }
     } else {
       this.registrationForm.markAllAsTouched();
     }
@@ -250,6 +276,7 @@ export class ClientesComponent implements OnInit {
 
   onCancel() {
     this.registrationForm.reset();
+    this.editingClientId.set(null);
   }
 
   toggleClienteStatus(cliente: Client) {
@@ -261,7 +288,24 @@ export class ClientesComponent implements OnInit {
   }
 
   editCliente(cliente: Client) {
-    // Implement edit
+    this.editingClientId.set(cliente.id);
+    this.registrationForm.patchValue({
+      nombre: cliente.name,
+      telefono: cliente.phone,
+      pais: cliente.country,
+      email: cliente.email,
+      ciudad: cliente.city,
+      limiteCredito: cliente.creditLimit,
+      ruc: cliente.taxId,
+      direccion: cliente.address,
+      clientCode: cliente.clientCode
+    });
+
+    // Scroll to form
+    const formElement = document.querySelector('.registration-form');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
   nextPage() {
