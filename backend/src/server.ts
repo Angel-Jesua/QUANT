@@ -30,11 +30,16 @@ app.get('/', (req: any, res: any) => {
 });
 
 // API routes
-app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/currencies', currencyRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/accounts', accountRoutes);
+const apiRouter = express.Router();
+apiRouter.use('/users', userRoutes);
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/currencies', currencyRoutes);
+apiRouter.use('/clients', clientRoutes);
+apiRouter.use('/accounts', accountRoutes);
+
+// Mount API routes on both /api and root / to handle DigitalOcean stripping prefix
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Example API endpoint using Prisma (kept for reference)
 app.get('/users', async (req: any, res: any) => {
