@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:4200', // Default Angular dev server
+  origin: ['http://localhost:4200', 'https://quant-app-7hofs.ondigitalocean.app'],
   credentials: true
 }));
 
