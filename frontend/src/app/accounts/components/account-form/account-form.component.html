@@ -1,0 +1,68 @@
+<div class="account-form-container">
+  <form [formGroup]="accountForm" (ngSubmit)="onSubmit()">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nombre de Cuenta:</label>
+        <input type="text" formControlName="name" placeholder="Ingrese nombre de la cuenta">
+      </div>
+      
+      <div class="form-group">
+        <label>Descripción:</label>
+        <input type="text" formControlName="description" placeholder="Ingrese breve descripción">
+      </div>
+      
+      <div class="form-group">
+        <label>Cuenta Padre (Opcional):</label>
+        <input type="text" formControlName="parentId" placeholder="Ninguna (Cuenta Raíz)">
+      </div>
+      
+      <div class="form-group">
+        <label>Número de Cuenta:</label>
+        <input type="text" formControlName="code" placeholder="Ej : 1105 - 05">
+      </div>
+      
+      <div class="form-group">
+        <label>Tipo de Cuenta:</label>
+        <div class="select-wrapper">
+          <select formControlName="type">
+            <option value="" disabled selected>Seleccione tipo de cuenta</option>
+            <option value="ACTIVOS">ACTIVOS</option>
+            <option value="PASIVOS">PASIVOS</option>
+            <option value="CAPITAL">CAPITAL</option>
+            <option value="INGRESOS">INGRESOS</option>
+            <option value="GASTOS">GASTOS</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Moneda:</label>
+        <div class="select-wrapper">
+          <select formControlName="currency">
+            <option value="" disabled selected>Seleccione tipo de moneda</option>
+            <option value="NIO">NIO</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <div class="toggle-group">
+        <span class="label">¿Es cuenta detalle?</span>
+        <div class="segmented-control">
+          <input type="radio" id="detail-yes" formControlName="isDetail" [value]="true">
+          <label for="detail-yes">Sí</label>
+          
+          <input type="radio" id="detail-no" formControlName="isDetail" [value]="false">
+          <label for="detail-no">No</label>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button type="button" class="btn-cancel" (click)="onCancel()">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="accountForm.invalid">Registrar</button>
+      </div>
+    </div>
+  </form>
+</div>

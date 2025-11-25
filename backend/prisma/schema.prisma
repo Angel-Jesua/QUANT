@@ -1,5 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -14,6 +14,7 @@ datasource db {
 enum UserRole {
   administrator
   accountant
+
   @@map("user_role")
 }
 
@@ -22,6 +23,7 @@ enum AvatarType {
   uploaded
   social
   gravatar
+
   @@map("avatar_type")
 }
 
@@ -35,6 +37,7 @@ enum AuditAction {
   password_change
   photo_upload
   photo_delete
+
   @@map("audit_action")
 }
 
@@ -47,54 +50,91 @@ enum AccountType {
   Gastos
 }
 
+enum InvoiceStatus {
+  draft
+  pending
+  paid
+  cancelled
+
+  @@map("invoice_status")
+}
+
+enum PaymentMethod {
+  cash
+  check
+  bank_transfer
+  credit_card
+  other
+
+  @@map("payment_method")
+}
+
+enum LineType {
+  main_service
+  extra_service
+  expense
+
+  @@map("line_type")
+}
+
 // ================================
 // MODELS (mapped to snake_case tables/columns)
 // ================================
 
 model UserAccount {
-  id                  Int       @id @default(autoincrement()) @map("id")
-  username            String    @unique @map("username")
-  email               String    @unique @map("email")
-  passwordHash        String    @map("password_hash")
-  fullName            String    @map("full_name")
-  role                UserRole  @default(accountant) @map("role")
-  profileImageUrl     String?   @map("profile_image_url")
+  id                  Int        @id @default(autoincrement()) @map("id")
+  username            String     @unique @map("username")
+  email               String     @unique @map("email")
+  passwordHash        String     @map("password_hash")
+  fullName            String     @map("full_name")
+  role                UserRole   @default(accountant) @map("role")
+  profileImageUrl     String?    @map("profile_image_url")
   avatarType          AvatarType @default(generated) @map("avatar_type")
-  photoRequested      Boolean   @default(true) @map("photo_requested")
-  photoUploadedAt     DateTime? @map("photo_uploaded_at")
-  photoReminderSentAt DateTime? @map("photo_reminder_sent_at")
-  isActive            Boolean   @default(true) @map("is_active")
-  lastLogin           DateTime? @map("last_login")
-  lastActivity        DateTime? @map("last_activity")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-  passwordChangedAt   DateTime? @map("password_changed_at")
-  mustChangePassword  Boolean   @default(false) @map("must_change_password")
-  googleId            String?   @unique @map("google_id")
-  facebookId          String?   @unique @map("facebook_id")
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamp
-  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamp
-  createdById         Int?      @map("created_by")
-  updatedById         Int?      @map("updated_by")
+  photoRequested      Boolean    @default(true) @map("photo_requested")
+  photoUploadedAt     DateTime?  @map("photo_uploaded_at")
+  photoReminderSentAt DateTime?  @map("photo_reminder_sent_at")
+  isActive            Boolean    @default(true) @map("is_active")
+  lastLogin           DateTime?  @map("last_login")
+  lastActivity        DateTime?  @map("last_activity")
+  failedLoginAttempts Int        @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?  @map("locked_until")
+  passwordChangedAt   DateTime?  @map("password_changed_at")
+  mustChangePassword  Boolean    @default(false) @map("must_change_password")
+  googleId            String?    @unique @map("google_id")
+  facebookId          String?    @unique @map("facebook_id")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamp
+  createdById         Int?       @map("created_by")
+  updatedById         Int?       @map("updated_by")
 
   // Self-referencing relations
-  createdEntries      UserAccount[] @relation("CreatedByEntries")
-  updatedEntries      UserAccount[] @relation("UpdatedByEntries")
+  createdEntries UserAccount[] @relation("CreatedByEntries")
+  updatedEntries UserAccount[] @relation("UpdatedByEntries")
 
   // Relations to other tables
-  sessions            UserSession[]
-  createdPermissions  RolePermission[] @relation("PermissionCreator")
-  auditLogs           UserAuditLog[]
-  createdClients      Client[]      @relation("ClientCreatedBy")
-  updatedClients      Client[]      @relation("ClientUpdatedBy")
-  createdAccounts     Account[]     @relation("AccountCreatedBy")
-  updatedAccounts     Account[]     @relation("AccountUpdatedBy")
-  createdCurrencies   Currency[]    @relation("CurrencyCreatedBy")
-  updatedCurrencies   Currency[]    @relation("CurrencyUpdatedBy")
+  sessions           UserSession[]
+  createdPermissions RolePermission[]    @relation("PermissionCreator")
+  auditLogs          UserAuditLog[]
+  createdClients     Client[]            @relation("ClientCreatedBy")
+  updatedClients     Client[]            @relation("ClientUpdatedBy")
+  createdAccounts    Account[]           @relation("AccountCreatedBy")
+  updatedAccounts    Account[]           @relation("AccountUpdatedBy")
+  createdCurrencies  Currency[]          @relation("CurrencyCreatedBy")
+  updatedCurrencies  Currency[]          @relation("CurrencyUpdatedBy")
+  createdJournals    JournalEntry[]      @relation("JournalCreatedBy")
+  updatedJournals    JournalEntry[]      @relation("JournalUpdatedBy")
+  postedJournals     JournalEntry[]      @relation("JournalPostedBy")
+  createdInvoices    Invoice[]           @relation("InvoiceCreatedBy")
+  updatedInvoices    Invoice[]           @relation("InvoiceUpdatedBy")
+  createdPayments    Payment[]           @relation("PaymentCreatedBy")
+  updatedPayments    Payment[]           @relation("PaymentUpdatedBy")
+  createdAllocations PaymentAllocation[] @relation("AllocationCreatedBy")
+  uploadedFiles      Attachment[]        @relation("AttachmentUploadedBy")
+  attachedFiles      EntityAttachment[]  @relation("EntityAttachedBy")
 
   // References to creator/updater
-  createdBy           UserAccount? @relation("CreatedByEntries", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy           UserAccount? @relation("UpdatedByEntries", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdBy UserAccount? @relation("CreatedByEntries", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy UserAccount? @relation("UpdatedByEntries", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([username])
   @@index([email])
@@ -105,7 +145,6 @@ model UserAccount {
   @@index([photoRequested])
   @@index([createdById])
   @@index([updatedById])
-
   @@map("user_account")
 }
 
@@ -120,80 +159,80 @@ model UserSession {
   lastActivity DateTime @default(now()) @map("last_activity")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
 
-  user         UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
   @@index([isActive, expiresAt])
-
   @@map("user_session")
 }
 
 model RolePermission {
-  id          Int       @id @default(autoincrement()) @map("id")
-  role        UserRole  @map("role")
-  module      String    @map("module")
-  canRead     Boolean   @default(false) @map("can_read")
-  canCreate   Boolean   @default(false) @map("can_create")
-  canUpdate   Boolean   @default(false) @map("can_update")
-  canDelete   Boolean   @default(false) @map("can_delete")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp
-  createdById Int?      @map("created_by")
+  id          Int      @id @default(autoincrement()) @map("id")
+  role        UserRole @map("role")
+  module      String   @map("module")
+  canRead     Boolean  @default(false) @map("can_read")
+  canCreate   Boolean  @default(false) @map("can_create")
+  canUpdate   Boolean  @default(false) @map("can_update")
+  canDelete   Boolean  @default(false) @map("can_delete")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp
+  createdById Int?     @map("created_by")
 
-  createdBy   UserAccount? @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy UserAccount? @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([role, module])
   @@index([role, module])
   @@index([createdById])
-
   @@map("role_permission")
 }
 
 model UserAuditLog {
-  id          BigInt    @id @default(autoincrement()) @map("id")
-  userId      Int?      @map("user_id")
-  action      AuditAction @map("action")
-  entityType  String    @default("user") @map("entity_type")
-  entityId    Int?      @map("entity_id")
-  oldData     Json?     @map("old_data") @db.JsonB
-  newData     Json?     @map("new_data") @db.JsonB
-  ipAddress   String?   @map("ip_address") @db.Inet
-  userAgent   String?   @map("user_agent") @db.Text
-  success     Boolean   @default(true) @map("success")
-  errorMessage String?  @map("error_message") @db.Text
-  performedAt DateTime  @default(now()) @map("performed_at") @db.Timestamp
+  id           BigInt      @id @default(autoincrement()) @map("id")
+  userId       Int?        @map("user_id")
+  action       AuditAction @map("action")
+  entityType   String      @default("user") @map("entity_type")
+  entityId     Int?        @map("entity_id")
+  oldData      Json?       @map("old_data") @db.JsonB
+  newData      Json?       @map("new_data") @db.JsonB
+  ipAddress    String?     @map("ip_address") @db.Inet
+  userAgent    String?     @map("user_agent") @db.Text
+  success      Boolean     @default(true) @map("success")
+  errorMessage String?     @map("error_message") @db.Text
+  performedAt  DateTime    @default(now()) @map("performed_at") @db.Timestamp
 
-  user        UserAccount? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user UserAccount? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([action])
   @@index([performedAt])
   @@index([entityType, entityId])
   @@index([userId, performedAt])
-
   @@map("user_audit_log")
 }
 
 model Currency {
-  id             Int        @id @default(autoincrement()) @map("id")
-  code           String     @unique @map("code") @db.VarChar(3)
-  name           String     @map("name") @db.VarChar(100)
-  symbol         String     @map("symbol") @db.VarChar(10)
-  decimalPlaces  Int        @default(2) @map("decimal_places")
-  isBaseCurrency Boolean    @default(false) @map("is_base_currency")
-  exchangeRate   Decimal    @default(1.00) @map("exchange_rate") @db.Decimal(precision: 18, scale: 6)
-  isActive       Boolean    @default(true) @map("is_active")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamp
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamp
-  createdById    Int        @map("created_by")
-  updatedById    Int?       @map("updated_by")
+  id             Int      @id @default(autoincrement()) @map("id")
+  code           String   @unique @map("code") @db.VarChar(3)
+  name           String   @map("name") @db.VarChar(100)
+  symbol         String   @map("symbol") @db.VarChar(10)
+  decimalPlaces  Int      @default(2) @map("decimal_places")
+  isBaseCurrency Boolean  @default(false) @map("is_base_currency")
+  exchangeRate   Decimal  @default(1.00) @map("exchange_rate") @db.Decimal(precision: 18, scale: 6)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamp
+  createdById    Int      @map("created_by")
+  updatedById    Int?     @map("updated_by")
 
   // Relaciones
-  clients        Client[]    @relation("ClientCurrency")
-  accounts       Account[]   @relation("AccountCurrency")
-  createdBy      UserAccount @relation("CurrencyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy      UserAccount? @relation("CurrencyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  clients        Client[]       @relation("ClientCurrency")
+  accounts       Account[]      @relation("AccountCurrency")
+  journalEntries JournalEntry[] @relation("CurrencyJournals")
+  invoices       Invoice[]
+  payments       Payment[]
+  createdBy      UserAccount    @relation("CurrencyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      UserAccount?   @relation("CurrencyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   // Restricciones
   @@index([code])
@@ -201,32 +240,33 @@ model Currency {
   @@index([isActive])
   @@index([createdById])
   @@index([updatedById])
-
   @@map("currency")
 }
 
 model Client {
-  id             Int         @id @default(autoincrement()) @map("id")
-  clientCode     String      @unique @map("client_code") @db.VarChar(20)
-  taxId          String?     @unique @map("tax_id") @db.VarChar(20)
-  name           String      @map("name") @db.VarChar(255)
-  email          String?     @map("email") @db.VarChar(255)
-  phone          String?     @map("phone") @db.VarChar(50)
-  address        String?     @map("address") @db.Text
-  city           String?     @map("city") @db.VarChar(100)
-  country        String      @default("Nicaragua") @map("country") @db.VarChar(100)
-  creditLimit    Decimal     @default(0.00) @map("credit_limit") @db.Decimal(precision: 18, scale: 2)
-  currencyId     Int         @map("currency_id")
-  isActive       Boolean     @default(true) @map("is_active")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamp
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamp
-  createdById    Int         @map("created_by")
-  updatedById    Int?        @map("updated_by")
+  id          Int      @id @default(autoincrement()) @map("id")
+  clientCode  String   @unique @map("client_code") @db.VarChar(20)
+  taxId       String?  @unique @map("tax_id") @db.VarChar(20)
+  name        String   @map("name") @db.VarChar(255)
+  email       String?  @map("email") @db.VarChar(255)
+  phone       String?  @map("phone") @db.VarChar(50)
+  address     String?  @map("address") @db.Text
+  city        String?  @map("city") @db.VarChar(100)
+  country     String   @default("Nicaragua") @map("country") @db.VarChar(100)
+  creditLimit Decimal  @default(0.00) @map("credit_limit") @db.Decimal(precision: 18, scale: 2)
+  currencyId  Int      @map("currency_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp
+  createdById Int      @map("created_by")
+  updatedById Int?     @map("updated_by")
 
   // Relaciones
-  currency       Currency    @relation("ClientCurrency", fields: [currencyId], references: [id])
-  createdBy      UserAccount @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy      UserAccount? @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  currency  Currency     @relation("ClientCurrency", fields: [currencyId], references: [id])
+  invoices  Invoice[]
+  payments  Payment[]
+  createdBy UserAccount  @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy UserAccount? @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   // Índices y unicidad
   @@index([clientCode])
@@ -236,7 +276,6 @@ model Client {
   @@index([updatedById])
   @@index([isActive])
   @@index([country])
-
   @@map("client")
 }
 
@@ -256,11 +295,13 @@ model Account {
   updatedById     Int?        @map("updated_by")
 
   // Relaciones
-  currency        Currency    @relation("AccountCurrency", fields: [currencyId], references: [id])
-  parentAccount   Account?    @relation("AccountParent", fields: [parentAccountId], references: [id])
-  childAccounts   Account[]   @relation("AccountParent")
-  createdBy       UserAccount @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy       UserAccount? @relation("AccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  currency      Currency           @relation("AccountCurrency", fields: [currencyId], references: [id])
+  parentAccount Account?           @relation("AccountParent", fields: [parentAccountId], references: [id])
+  childAccounts Account[]          @relation("AccountParent")
+  journalLines  JournalEntryLine[] @relation("AccountJournalLines")
+  invoiceLines  InvoiceLine[]
+  createdBy     UserAccount        @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     UserAccount?       @relation("AccountUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   // Restricciones
   @@index([accountNumber])
@@ -271,6 +312,200 @@ model Account {
   @@index([updatedById])
   @@index([isDetail])
   @@index([isActive])
-
   @@map("account")
+}
+
+model JournalEntry {
+  id              Int       @id @default(autoincrement()) @map("id")
+  entryNumber     String    @unique @map("entry_number") @db.VarChar(20)
+  entryDate       DateTime  @map("entry_date") @db.Date
+  voucherNumber   String?   @map("voucher_number") @db.VarChar(50)
+  description     String    @map("description") @db.Text
+  currencyId      Int       @map("currency_id")
+  exchangeRate    Decimal   @default(1.00) @map("exchange_rate") @db.Decimal(18, 6)
+  isPosted        Boolean   @default(false) @map("is_posted")
+  isReversed      Boolean   @default(false) @map("is_reversed")
+  reversedEntryId Int?      @map("reversed_entry_id")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamp
+  postedAt        DateTime? @map("posted_at") @db.Timestamp
+  createdById     Int       @map("created_by")
+  updatedById     Int?      @map("updated_by")
+  postedById      Int?      @map("posted_by")
+
+  // Relations
+  currency         Currency           @relation("CurrencyJournals", fields: [currencyId], references: [id])
+  reversedEntry    JournalEntry?      @relation("JournalReversed", fields: [reversedEntryId], references: [id])
+  reversingEntries JournalEntry[]     @relation("JournalReversed")
+  createdBy        UserAccount        @relation("JournalCreatedBy", fields: [createdById], references: [id])
+  updatedBy        UserAccount?       @relation("JournalUpdatedBy", fields: [updatedById], references: [id])
+  postedBy         UserAccount?       @relation("JournalPostedBy", fields: [postedById], references: [id])
+  lines            JournalEntryLine[]
+
+  @@map("journal_entry")
+}
+
+model JournalEntryLine {
+  id             Int      @id @default(autoincrement()) @map("id")
+  journalEntryId Int      @map("journal_entry_id")
+  lineNumber     Int      @map("line_number")
+  accountId      Int      @map("account_id")
+  description    String?  @map("description") @db.VarChar(255)
+  debitAmount    Decimal? @map("debit_amount") @db.Decimal(18, 2)
+  creditAmount   Decimal? @map("credit_amount") @db.Decimal(18, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  // Relations
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation("AccountJournalLines", fields: [accountId], references: [id])
+
+  @@unique([journalEntryId, lineNumber])
+  @@map("journal_entry_line")
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement()) @map("id")
+  invoiceNumber String   @unique @map("invoice_number") @db.VarChar(20)
+  clientId      Int      @map("client_id")
+  invoiceDate   DateTime @map("invoice_date") @db.Date
+  dueDate       DateTime @map("due_date") @db.Date
+  currencyId    Int      @map("currency_id")
+  exchangeRate  Decimal  @default(1.00) @map("exchange_rate") @db.Decimal(18, 6)
+
+  // Campos específicos de Servicios Legales
+  mainServiceSummary String?  @map("main_service_summary") @db.VarChar(255)
+  markup             Decimal  @default(0.00) @map("markup") @db.Decimal(18, 2)
+  agreedDeposit      Decimal  @default(0.00) @map("agreed_deposit") @db.Decimal(18, 2)
+  depositPercentage  Decimal? @map("deposit_percentage") @db.Decimal(5, 2)
+
+  // Totales
+  subtotal       Decimal  @default(0.00) @map("subtotal") @db.Decimal(18, 2)
+  taxRate        Decimal  @default(15.00) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount      Decimal  @default(0.00) @map("tax_amount") @db.Decimal(18, 2)
+  discountAmount Decimal  @default(0.00) @map("discount_amount") @db.Decimal(18, 2)
+  totalAmount    Decimal  @default(0.00) @map("total_amount") @db.Decimal(18, 2)
+  paidAmount     Decimal  @default(0.00) @map("paid_amount") @db.Decimal(18, 2)
+  balanceDue     Decimal? @map("balance_due") @db.Decimal(18, 2)
+
+  status InvoiceStatus @default(draft) @map("status")
+  notes  String?       @map("notes") @db.Text
+
+  // Auditoría
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp
+  createdById Int      @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  // Relaciones
+  client    Client       @relation(fields: [clientId], references: [id])
+  currency  Currency     @relation(fields: [currencyId], references: [id])
+  createdBy UserAccount  @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  updatedBy UserAccount? @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id])
+
+  lines              InvoiceLine[]
+  paymentAllocations PaymentAllocation[]
+
+  @@index([invoiceNumber])
+  @@index([clientId])
+  @@index([status])
+  @@map("invoice")
+}
+
+model InvoiceLine {
+  id         Int @id @default(autoincrement()) @map("id")
+  invoiceId  Int @map("invoice_id")
+  lineNumber Int @map("line_number")
+
+  type            LineType @default(extra_service) @map("type")
+  description     String   @map("description") @db.VarChar(500)
+  serviceCategory String?  @map("service_category") @db.VarChar(100)
+
+  quantity           Decimal  @default(1) @map("quantity") @db.Decimal(18, 4)
+  unitPrice          Decimal  @map("unit_price") @db.Decimal(18, 4)
+  discountPercentage Decimal  @default(0.00) @map("discount_percentage") @db.Decimal(5, 2)
+  lineTotal          Decimal? @map("line_total") @db.Decimal(18, 2)
+
+  accountId Int      @map("account_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@unique([invoiceId, lineNumber])
+  @@map("invoice_line")
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement()) @map("id")
+  paymentNumber   String        @unique @map("payment_number") @db.VarChar(20)
+  clientId        Int           @map("client_id")
+  paymentDate     DateTime      @map("payment_date") @db.Date
+  amount          Decimal       @map("amount") @db.Decimal(18, 2)
+  currencyId      Int           @map("currency_id")
+  exchangeRate    Decimal       @default(1.00) @map("exchange_rate") @db.Decimal(18, 6)
+  paymentMethod   PaymentMethod @map("payment_method")
+  referenceNumber String?       @map("reference_number") @db.VarChar(100)
+  notes           String?       @map("notes") @db.Text
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp
+  createdById Int      @map("created_by")
+  updatedById Int?     @map("updated_by")
+
+  client    Client       @relation(fields: [clientId], references: [id])
+  currency  Currency     @relation(fields: [currencyId], references: [id])
+  createdBy UserAccount  @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  updatedBy UserAccount? @relation("PaymentUpdatedBy", fields: [updatedById], references: [id])
+
+  allocations PaymentAllocation[]
+
+  @@index([clientId])
+  @@map("payment")
+}
+
+model PaymentAllocation {
+  id              Int      @id @default(autoincrement()) @map("id")
+  paymentId       Int      @map("payment_id")
+  invoiceId       Int      @map("invoice_id")
+  allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(18, 2)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp
+  createdById     Int      @map("created_by")
+
+  payment   Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice   Invoice     @relation(fields: [invoiceId], references: [id])
+  createdBy UserAccount @relation("AllocationCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([paymentId, invoiceId])
+  @@map("payment_allocation")
+}
+
+model Attachment {
+  id           Int      @id @default(autoincrement()) @map("id")
+  fileName     String   @map("file_name") @db.VarChar(255)
+  filePath     String   @map("file_path") @db.VarChar(500)
+  fileSize     BigInt   @map("file_size")
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  checksum     String?  @map("checksum") @db.VarChar(64)
+  uploadedAt   DateTime @default(now()) @map("uploaded_at") @db.Timestamp
+  uploadedById Int      @map("uploaded_by")
+
+  uploadedBy        UserAccount        @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id])
+  entityAttachments EntityAttachment[]
+
+  @@map("attachment")
+}
+
+model EntityAttachment {
+  id           Int      @id @default(autoincrement()) @map("id")
+  attachmentId Int      @map("attachment_id")
+  entityType   String   @map("entity_type") @db.VarChar(50)
+  entityId     Int      @map("entity_id")
+  attachedAt   DateTime @default(now()) @map("attached_at") @db.Timestamp
+  attachedById Int      @map("attached_by")
+
+  attachment Attachment  @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  attachedBy UserAccount @relation("EntityAttachedBy", fields: [attachedById], references: [id])
+
+  @@unique([attachmentId, entityType, entityId])
+  @@map("entity_attachment")
 }

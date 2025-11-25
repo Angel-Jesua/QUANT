@@ -1,0 +1,189 @@
+// Variables
+$primary-color: #0062FF;
+$text-color: #1E293B;
+$text-muted: #64748B;
+$bg-color: #F8FAFC;
+$card-bg: #FFFFFF;
+$border-color: #E2E8F0;
+$font-primary: 'Poppins', sans-serif;
+$font-secondary: 'Inter', sans-serif;
+
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 20px;
+  border: 1px solid $border-color;
+  background: $card-bg;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #94A3B8;
+    }
+  }
+}
+
+.accounts-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1000px;
+
+  thead {
+    background: #F8FAFC;
+
+    th {
+      padding: 16px 24px;
+      text-align: left;
+      color: $text-muted;
+      font-family: $font-secondary;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid $border-color;
+      white-space: nowrap;
+
+      &:first-child {
+        padding-left: 32px;
+      }
+
+      &:last-child {
+        padding-right: 32px;
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #F8FAFC;
+      }
+
+      &:last-child td {
+        border-bottom: none;
+      }
+    }
+
+    td {
+      padding: 20px 24px;
+      border-bottom: 1px solid $border-color;
+      vertical-align: middle;
+      color: $text-color;
+      font-family: $font-secondary;
+      font-size: 14px;
+
+      &:first-child {
+        padding-left: 32px;
+      }
+
+      &:last-child {
+        padding-right: 32px;
+      }
+
+      .account-name {
+        font-weight: 500;
+        color: $text-color;
+      }
+      
+      .account-code {
+        font-size: 13px;
+        color: $text-color;
+        font-family: 'Roboto Mono', monospace;
+        font-weight: 500;
+      }
+
+      .toggle-switch {
+        width: 44px;
+        height: 24px;
+        background-color: #E2E8F0;
+        border-radius: 12px;
+        position: relative;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+
+        .toggle-knob {
+          width: 20px;
+          height: 20px;
+          background-color: #FFFFFF;
+          border-radius: 50%;
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        &.active {
+          background-color: $primary-color;
+
+          .toggle-knob {
+            transform: translateX(20px);
+          }
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+
+        .btn-action {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: $text-muted;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+
+          svg {
+            width: 18px;
+            height: 18px;
+          }
+
+          &:hover {
+            background-color: #F1F5F9;
+            color: $primary-color;
+          }
+
+          &.btn-view:hover {
+            color: $primary-color;
+            background-color: rgba(0, 98, 255, 0.1);
+          }
+
+          &.btn-edit:hover {
+            color: #F59E0B;
+            background-color: rgba(245, 158, 11, 0.1);
+          }
+        }
+      }
+    }
+  }
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px !important;
+  color: $text-muted;
+  font-style: italic;
+}
+
+
