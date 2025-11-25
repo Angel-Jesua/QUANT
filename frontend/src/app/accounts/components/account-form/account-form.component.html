@@ -13,7 +13,16 @@
       
       <div class="form-group">
         <label>Cuenta Padre (Opcional):</label>
-        <input type="text" formControlName="parentId" placeholder="Ninguna (Cuenta Raíz)">
+        <div class="select-wrapper">
+          <select formControlName="parentAccountNumber">
+            <option value="">-- Sin padre (Cuenta Raíz) --</option>
+            @for (parent of predefinedParentAccounts; track parent.accountNumber) {
+              <option [value]="parent.accountNumber">
+                {{ parent.level === 1 ? '' : '  └─ ' }}{{ parent.accountNumber }} - {{ parent.name }}
+              </option>
+            }
+          </select>
+        </div>
       </div>
       
       <div class="form-group">
@@ -23,16 +32,7 @@
       
       <div class="form-group">
         <label>Tipo de Cuenta:</label>
-        <div class="select-wrapper">
-          <select formControlName="type">
-            <option value="" disabled selected>Seleccione tipo de cuenta</option>
-            <option value="ACTIVOS">ACTIVOS</option>
-            <option value="PASIVOS">PASIVOS</option>
-            <option value="CAPITAL">CAPITAL</option>
-            <option value="INGRESOS">INGRESOS</option>
-            <option value="GASTOS">GASTOS</option>
-          </select>
-        </div>
+        <input type="text" formControlName="type" placeholder="Ej: Activo, Pasivo, Capital, etc.">
       </div>
       
       <div class="form-group">
@@ -40,8 +40,9 @@
         <div class="select-wrapper">
           <select formControlName="currency">
             <option value="" disabled selected>Seleccione tipo de moneda</option>
-            <option value="NIO">NIO</option>
-            <option value="USD">USD</option>
+            @for (currency of currencies(); track currency.id) {
+              <option [value]="currency.code">{{ currency.code }} - {{ currency.name }}</option>
+            }
           </select>
         </div>
       </div>

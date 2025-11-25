@@ -1,0 +1,538 @@
+<div class="import-wizard">
+  <!-- Header with steps indicator -->
+  <header class="wizard-header">
+    <h2>Importar Cuentas desde Excel</h2>
+    <div class="steps-indicator">
+      <div class="step" [class.active]="currentStep() === 'upload'" [class.completed]="currentStep() !== 'upload'">
+        <span class="step-number">1</span>
+        <span class="step-label">Cargar Archivo</span>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep() !== 'upload'"></div>
+      <div class="step" [class.active]="currentStep() === 'mapping'" [class.completed]="currentStep() === 'hierarchy' || currentStep() === 'preview' || currentStep() === 'result'">
+        <span class="step-number">2</span>
+        <span class="step-label">Mapear Columnas</span>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep() === 'hierarchy' || currentStep() === 'preview' || currentStep() === 'result'"></div>
+      <div class="step" [class.active]="currentStep() === 'hierarchy'" [class.completed]="currentStep() === 'preview' || currentStep() === 'result'">
+        <span class="step-number">3</span>
+        <span class="step-label">Jerarquía</span>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep() === 'preview' || currentStep() === 'result'"></div>
+      <div class="step" [class.active]="currentStep() === 'preview'" [class.completed]="currentStep() === 'result'">
+        <span class="step-number">4</span>
+        <span class="step-label">Vista Previa</span>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep() === 'result'"></div>
+      <div class="step" [class.active]="currentStep() === 'result'">
+        <span class="step-number">5</span>
+        <span class="step-label">Resultado</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Error message -->
+  @if (errorMessage()) {
+    <div class="error-banner">
+      <span class="error-icon">⚠️</span>
+      <span>{{ errorMessage() }}</span>
+      <button class="dismiss-btn" (click)="errorMessage.set(null)">✕</button>
+    </div>
+  }
+
+  <!-- Step 1: Upload -->
+  @if (currentStep() === 'upload') {
+    <section class="wizard-content upload-step">
+      <div class="upload-area" [class.has-file]="workbook()">
+        <input
+          type="file"
+          id="fileInput"
+          accept=".xlsx,.xls"
+          (change)="onFileSelected($event)"
+          [disabled]="isLoading()"
+        />
+        <label for="fileInput" class="upload-label">
+          @if (isLoading()) {
+            <span class="spinner"></span>
+            <span>Procesando archivo...</span>
+          } @else if (workbook()) {
+            <span class="file-icon">📊</span>
+            <span>Archivo cargado correctamente</span>
+            <span class="file-hint">Haga clic para seleccionar otro archivo</span>
+          } @else {
+            <span class="file-icon">📁</span>
+            <span>Arrastre un archivo Excel aquí o haga clic para seleccionar</span>
+            <span class="file-hint">Formatos soportados: .xlsx, .xls</span>
+          }
+        </label>
+      </div>
+
+      @if (sheetNames().length > 1) {
+        <div class="sheet-selector">
+          <label for="sheetSelect">Seleccione la hoja a importar:</label>
+          <select
+            id="sheetSelect"
+            [ngModel]="selectedSheet()"
+            (ngModelChange)="selectSheet($event)"
+          >
+            @for (sheet of sheetNames(); track sheet) {
+              <option [value]="sheet">{{ sheet }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      @if (rawData().length > 0) {
+        <div class="data-summary">
+          <p>✓ {{ rawData().length }} filas detectadas en la hoja <strong>{{ selectedSheet() }}</strong></p>
+          <p>✓ {{ headers().length }} columnas: {{ headers().slice(0, 5).join(', ') }}{{ headers().length > 5 ? '...' : '' }}</p>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- Step 2: Column Mapping -->
+  @if (currentStep() === 'mapping') {
+    <section class="wizard-content mapping-step">
+      <p class="mapping-instructions">
+        Relacione las columnas del archivo Excel con los campos del sistema.
+        Los campos marcados con <span class="required">*</span> son obligatorios.
+      </p>
+
+      <div class="mapping-grid">
+        <div class="mapping-field">
+          <label for="mapAccountNumber">Número de Cuenta <span class="required">*</span></label>
+          <select
+            id="mapAccountNumber"
+            [ngModel]="columnMapping().accountNumber"
+            (ngModelChange)="updateMapping('accountNumber', $event)"
+          >
+            <option value="">-- Seleccionar columna --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="mapping-field">
+          <label for="mapName">Nombre de la Cuenta <span class="required">*</span></label>
+          <select
+            id="mapName"
+            [ngModel]="columnMapping().name"
+            (ngModelChange)="updateMapping('name', $event)"
+          >
+            <option value="">-- Seleccionar columna --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="mapping-field">
+          <label for="mapType">Tipo de Cuenta <span class="required">*</span></label>
+          <select
+            id="mapType"
+            [ngModel]="columnMapping().type"
+            (ngModelChange)="updateMapping('type', $event)"
+          >
+            <option value="">-- Seleccionar columna --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+          <span class="field-hint">El valor se tomará directamente de la columna seleccionada</span>
+        </div>
+
+        <div class="mapping-field">
+          <label for="mapCurrency">Moneda (columna del Excel)</label>
+          <select
+            id="mapCurrency"
+            [ngModel]="columnMapping().currency"
+            (ngModelChange)="updateMapping('currency', $event)"
+            [disabled]="skipCurrencyValidation()"
+          >
+            <option value="">-- No mapear columna --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+          <span class="field-hint">
+            Monedas disponibles:
+            @for (currency of currencies(); track currency.id) {
+              <span class="currency-tag">{{ currency.code }}</span>
+            }
+          </span>
+        </div>
+
+        <div class="mapping-field default-currency-field">
+          <label for="defaultCurrency">Moneda por Defecto <span class="required">*</span></label>
+          <select
+            id="defaultCurrency"
+            [ngModel]="defaultCurrency()"
+            (ngModelChange)="setDefaultCurrency($event)"
+            [disabled]="skipCurrencyValidation()"
+          >
+            <option value="">-- Seleccionar moneda --</option>
+            @for (currency of currencies(); track currency.id) {
+              <option [value]="currency.code">{{ currency.code }} - {{ currency.name }}</option>
+            }
+          </select>
+          <span class="field-hint">
+            Se usará esta moneda cuando la columna del Excel no tenga valor o no esté mapeada
+          </span>
+        </div>
+
+        <div class="skip-currency-option">
+          <label class="checkbox-label" [class.checked]="skipCurrencyValidation()">
+            <input 
+              type="checkbox" 
+              [checked]="skipCurrencyValidation()"
+              (change)="toggleSkipCurrencyValidation()"
+            />
+            <span class="checkbox-text">Omitir validación de moneda</span>
+          </label>
+          @if (skipCurrencyValidation()) {
+            <div class="warning-message">
+              <span class="warning-icon">⚠️</span>
+              <span><strong>No recomendado:</strong> Las cuentas se importarán sin asignar moneda. 
+              Esto puede causar problemas al registrar movimientos contables.</span>
+            </div>
+          }
+        </div>
+
+        <div class="mapping-field">
+          <label for="mapDescription">Descripción (opcional)</label>
+          <select
+            id="mapDescription"
+            [ngModel]="columnMapping().description"
+            (ngModelChange)="updateMapping('description', $event)"
+          >
+            <option value="">-- No mapear --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h4>ℹ️ Procesamiento Automático</h4>
+        <ul>
+          <li><strong>Cuentas Predefinidas:</strong> Las cuentas principales (100-000-000, 110-000-000, 200-000-000, etc.) serán omitidas automáticamente durante la importación.</li>
+          <li><strong>Jerarquía:</strong> Se inferirá automáticamente basándose en la estructura del número de cuenta (ej: 110-000-000 es padre de 111-000-000).</li>
+          <li><strong>Cuenta Detalle:</strong> Las cuentas que no sean padres de otras serán marcadas como cuentas de detalle.</li>
+          <li><strong>Tipo Fijo:</strong> Puede seleccionar un tipo fijo para todas las cuentas o usar la columna del Excel.</li>
+        </ul>
+      </div>
+    </section>
+  }
+
+  <!-- Step 3: Hierarchy -->
+  @if (currentStep() === 'hierarchy') {
+    <section class="wizard-content hierarchy-step">
+      <p class="hierarchy-instructions">
+        Verifique y ajuste la cuenta padre de cada cuenta. La jerarquía fue inferida automáticamente
+        pero puede corregirla si es necesario.
+      </p>
+
+      <div class="preview-summary">
+        <div class="summary-card valid">
+          <span class="count">{{ validRowCount() }}</span>
+          <span class="label">Cuentas válidas</span>
+        </div>
+        <div class="summary-card error">
+          <span class="count">{{ errorRowCount() }}</span>
+          <span class="label">Con errores</span>
+        </div>
+      </div>
+
+      <div class="hierarchy-table-container">
+        <table class="hierarchy-table">
+          <thead>
+            <tr>
+              <th>Nivel</th>
+              <th>Número de Cuenta</th>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Cuenta Padre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of previewRows(); track $index; let idx = $index) {
+              <tr [class.error-row]="row.hasError" [class.grouping-row]="!row.isDetail">
+                <td class="level-cell">
+                  <span class="level-indicator" [attr.data-level]="row.level">{{ row.level }}</span>
+                </td>
+                <td class="account-number">{{ row.accountNumber }}</td>
+                <td class="account-name">
+                  @if (!row.isDetail) {
+                    <strong>{{ row.name }}</strong>
+                  } @else {
+                    {{ row.name }}
+                  }
+                </td>
+                <td>
+                  <span class="type-badge" [attr.data-type]="row.type">{{ row.type }}</span>
+                </td>
+                <td class="parent-cell">
+                  @if (editingParentIndex() === idx) {
+                    <select
+                      class="parent-select"
+                      [ngModel]="row.parentAccountNumber || ''"
+                      (ngModelChange)="updateParentAccount(row.accountNumber, $event || undefined)"
+                    >
+                      <option value="">-- Sin padre (cuenta raíz) --</option>
+                      <!-- Predefined parent accounts with hierarchy -->
+                      @for (parent of predefinedParentAccounts; track parent.accountNumber) {
+                        <option [value]="parent.accountNumber">
+                          {{ parent.level === 1 ? '' : '  └─ ' }}{{ parent.accountNumber }} - {{ parent.name }}
+                        </option>
+                      }
+                      <option disabled>────────────────────</option>
+                      <!-- Other accounts from import as potential parents -->
+                      @for (parent of getParentOptions(row.accountNumber); track parent.accountNumber) {
+                        <option [value]="parent.accountNumber">
+                          {{ parent.accountNumber }} - {{ parent.name }}
+                        </option>
+                      }
+                    </select>
+                  } @else {
+                    @if (row.parentAccountNumber) {
+                      <span class="parent-badge">{{ row.parentAccountNumber }}</span>
+                    } @else {
+                      <span class="text-muted">Cuenta raíz</span>
+                    }
+                  }
+                </td>
+                <td class="action-cell">
+                  @if (editingParentIndex() === idx) {
+                    <button class="btn-icon" (click)="cancelEditingParent()" title="Cancelar">
+                      ✕
+                    </button>
+                  } @else {
+                    <button class="btn-icon" (click)="startEditingParent(idx)" title="Cambiar padre">
+                      ✏️
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="info-box">
+        <h4>ℹ️ Consejos de Jerarquía</h4>
+        <ul>
+          <li>Las cuentas principales predefinidas (100-000-000, 200-000-000, etc.) <strong>no se importarán</strong> ya que existen en el sistema.</li>
+          <li>Las cuentas de <strong>nivel 1</strong> (ej: 100-000-000) son cuentas raíz y no necesitan padre.</li>
+          <li>El padre debe tener un <strong>nivel menor</strong> que la cuenta hija.</li>
+          <li>Si una cuenta padre no existe en la lista, puede seleccionar una de las cuentas predefinidas.</li>
+          <li>Las cuentas marcadas como <strong>"Agrupación"</strong> no requieren moneda.</li>
+        </ul>
+      </div>
+    </section>
+  }
+
+  <!-- Step 4: Preview -->
+  @if (currentStep() === 'preview') {
+    <section class="wizard-content preview-step">
+      <div class="preview-summary">
+        <div class="summary-card valid">
+          <span class="count">{{ validRowCount() }}</span>
+          <span class="label">Cuentas válidas</span>
+        </div>
+        <div class="summary-card error">
+          <span class="count">{{ errorRowCount() }}</span>
+          <span class="label">Con errores</span>
+        </div>
+      </div>
+
+      <div class="preview-table-container">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Nivel</th>
+              <th>Número</th>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Moneda</th>
+              <th>Padre</th>
+              <th>Detalle</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of previewRows(); track $index) {
+              <tr [class.error-row]="row.hasError" [class.grouping-row]="!row.isDetail" [style.padding-left.px]="(row.level - 1) * 16">
+                <td class="level-cell">
+                  <span class="level-indicator" [attr.data-level]="row.level">{{ row.level }}</span>
+                </td>
+                <td class="account-number">{{ row.accountNumber }}</td>
+                <td class="account-name">
+                  @if (!row.isDetail) {
+                    <strong>{{ row.name }}</strong>
+                  } @else {
+                    {{ row.name }}
+                  }
+                </td>
+                <td>
+                  <span class="type-badge" [attr.data-type]="row.type">{{ row.type }}</span>
+                </td>
+                <td>
+                  @if (row.isDetail) {
+                    {{ row.currencyCode }}
+                  } @else {
+                    <span class="text-muted">-</span>
+                  }
+                </td>
+                <td class="parent-cell">{{ row.parentAccountNumber || '-' }}</td>
+                <td class="detail-cell">
+                  @if (row.isDetail) {
+                    <span class="badge detail">Sí</span>
+                  } @else {
+                    <span class="badge parent">Agrupación</span>
+                  }
+                </td>
+                <td class="status-cell">
+                  @if (row.hasError) {
+                    <span class="status-error" [title]="row.errorMessage">❌ {{ row.errorMessage }}</span>
+                  } @else {
+                    <span class="status-ok">✓ Válido</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (tooManyErrors()) {
+        <div class="error-box">
+          <div class="error-box-header">
+            <span class="error-icon">🚫</span>
+            <strong>Importación Bloqueada</strong>
+          </div>
+          <p>
+            Hay <strong>{{ errorRowCount() }}</strong> cuentas con errores, lo cual supera el límite permitido de 
+            <strong>{{ MAX_ALLOWED_ERRORS }}</strong> errores.
+          </p>
+          <p>Por favor, corrija los errores en el archivo Excel y vuelva a intentarlo.</p>
+        </div>
+      } @else if (errorRowCount() > 0) {
+        <div class="warning-box">
+          <strong>⚠️ Atención:</strong> Hay {{ errorRowCount() }} cuentas con errores que serán omitidas durante la importación.
+          Se importarán únicamente las <strong>{{ validRowCount() }}</strong> cuentas válidas.
+        </div>
+      }
+    </section>
+  }
+
+  <!-- Step 5: Result -->
+  @if (currentStep() === 'result') {
+    <section class="wizard-content result-step">
+      @if (importResult()) {
+        <div class="result-summary" [class.success]="importResult()!.success" [class.partial]="importResult()!.errorCount > 0">
+          @if (importResult()!.success && importResult()!.errorCount === 0) {
+            <div class="result-icon success">✓</div>
+            <h3>¡Importación Exitosa!</h3>
+            <p>Se importaron <strong>{{ importResult()!.successCount }}</strong> cuentas correctamente.</p>
+          } @else if (importResult()!.success) {
+            <div class="result-icon partial">⚠️</div>
+            <h3>Importación Parcial</h3>
+            <p>
+              Se importaron <strong>{{ importResult()!.successCount }}</strong> cuentas.
+              <strong>{{ importResult()!.errorCount }}</strong> cuentas presentaron errores.
+            </p>
+          } @else {
+            <div class="result-icon error">✕</div>
+            <h3>Error en la Importación</h3>
+            <p>No se pudo completar la importación. Revise los detalles a continuación.</p>
+          }
+        </div>
+
+        @if (hasImportErrors()) {
+          <div class="error-details">
+            <h4>Detalles de Errores</h4>
+            <ul>
+              @for (result of failedResults(); track result.accountNumber) {
+                <li>
+                  <strong>{{ result.accountNumber }}:</strong> {{ result.error }}
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      }
+    </section>
+  }
+
+  <!-- Footer with navigation buttons -->
+  <footer class="wizard-footer">
+    <div class="footer-left">
+      @if (currentStep() !== 'result') {
+        <button class="btn btn-secondary" (click)="cancel()">Cancelar</button>
+      }
+    </div>
+    <div class="footer-right">
+      @if (currentStep() === 'mapping' || currentStep() === 'hierarchy' || currentStep() === 'preview') {
+        <button class="btn btn-secondary" (click)="previousStep()" [disabled]="isLoading()">
+          ← Anterior
+        </button>
+      }
+
+      @if (currentStep() === 'upload') {
+        <button
+          class="btn btn-primary"
+          (click)="nextStep()"
+          [disabled]="!canProceedToMapping() || isLoading()"
+        >
+          Siguiente →
+        </button>
+      }
+
+      @if (currentStep() === 'mapping') {
+        <button
+          class="btn btn-primary"
+          (click)="nextStep()"
+          [disabled]="!canProceedToHierarchy() || isLoading()"
+        >
+          Configurar Jerarquía →
+        </button>
+      }
+
+      @if (currentStep() === 'hierarchy') {
+        <button
+          class="btn btn-primary"
+          (click)="nextStep()"
+          [disabled]="isLoading()"
+        >
+          Vista Previa →
+        </button>
+      }
+
+      @if (currentStep() === 'preview') {
+        <button
+          class="btn btn-primary"
+          [class.btn-blocked]="tooManyErrors()"
+          (click)="executeImport()"
+          [disabled]="!canImport() || isLoading()"
+          [title]="tooManyErrors() ? 'Demasiados errores para importar (máximo ' + MAX_ALLOWED_ERRORS + ')' : ''"
+        >
+          @if (isLoading()) {
+            <span class="spinner-small"></span> Importando...
+          } @else if (tooManyErrors()) {
+            🚫 Bloqueado ({{ errorRowCount() }} errores)
+          } @else {
+            Importar {{ validRowCount() }} Cuentas
+          }
+        </button>
+      }
+
+      @if (currentStep() === 'result') {
+        <button class="btn btn-secondary" (click)="reset()">Nueva Importación</button>
+        <button class="btn btn-primary" (click)="finish()">Finalizar</button>
+      }
+    </div>
+  </footer>
+</div>

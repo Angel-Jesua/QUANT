@@ -5,6 +5,8 @@ import {
   IUpdateAccount,
   IRequestContext,
   IAccountResponse,
+  BulkImportRequest,
+  BulkImportAccountItem,
 } from './account.types';
 import { logErrorContext, logAuditError } from '../../utils/error';
 import { AuditAction } from '@prisma/client';
@@ -472,6 +474,134 @@ export class AccountController {
         error: { message: 'Error interno del servidor' },
       });
     }
+  }
+
+  /**
+   * Bulk import accounts from pre-processed data.
+   * Body: { accounts: BulkImportAccountItem[] }
+   * Returns: 200 with import results; 400 for validation errors; 500 on unexpected error.
+   */
+  async bulkImport(req: Request, res: Response): Promise<void> {
+    try {
+      const body = req.body as BulkImportRequest;
+
+      // Validate request structure
+      if (!body || !Array.isArray(body.accounts)) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Se requiere un array de cuentas', code: 'INVALID_PAYLOAD' },
+        });
+        return;
+      }
+
+      if (body.accounts.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'El array de cuentas está vacío', code: 'EMPTY_ACCOUNTS' },
+        });
+        return;
+      }
+
+      if (body.accounts.length > 1000) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Máximo 1000 cuentas por importación', code: 'TOO_MANY_ACCOUNTS' },
+        });
+        return;
+      }
+
+      // Validate each account item
+      const validationErrors = this.validateBulkImportItems(body.accounts);
+      if (validationErrors.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'Errores de validación en las cuentas',
+            code: 'VALIDATION_ERROR',
+            details: validationErrors,
+          },
+        });
+        return;
+      }
+
+      const requestContext: IRequestContext = {
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        userId: (req as any).userId ?? (req as any).user?.id,
+      };
+
+      const result = await this.accountService.bulkImport(body.accounts, requestContext);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      logErrorContext('account.bulkImport.error', error, {
+        ip: req.ip || (req as any).connection?.remoteAddress,
+        ua: req.get('User-Agent'),
+      });
+      await logAuditError({
+        action: AuditAction.create,
+        entityType: 'account',
+        errorKey: 'bulk_import_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
+      res.status(500).json({
+        success: false,
+        error: { message: 'Error interno del servidor durante la importación' },
+      });
+    }
+  }
+
+  /**
+   * Validate bulk import items and return validation errors
+   */
+  private validateBulkImportItems(
+    accounts: BulkImportAccountItem[]
+  ): Array<{ index: number; accountNumber: string; errors: Record<string, string> }> {
+    const validationErrors: Array<{
+      index: number;
+      accountNumber: string;
+      errors: Record<string, string>;
+    }> = [];
+
+    const seenAccountNumbers = new Set<string>();
+
+    accounts.forEach((item, index) => {
+      const errors: Record<string, string> = {};
+      const accountNumber = typeof item.accountNumber === 'string'
+        ? item.accountNumber.trim().toUpperCase()
+        : '';
+
+      if (!accountNumber || accountNumber.length > 20) {
+        errors.accountNumber = 'accountNumber debe ser 1-20 caracteres';
+      } else if (seenAccountNumbers.has(accountNumber)) {
+        errors.accountNumber = 'accountNumber duplicado en la importación';
+      } else {
+        seenAccountNumbers.add(accountNumber);
+      }
+
+      if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+        errors.name = 'name es requerido';
+      }
+
+      // Accept any non-empty string for type
+      if (!item.type || typeof item.type !== 'string' || item.type.trim().length === 0) {
+        errors.type = 'type es requerido';
+      }
+
+      if (typeof item.currencyId !== 'number' || !Number.isInteger(item.currencyId) || item.currencyId <= 0) {
+        errors.currencyId = 'currencyId debe ser un entero positivo';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        validationErrors.push({ index, accountNumber: accountNumber || `(índice ${index})`, errors });
+      }
+    });
+
+    return validationErrors;
   }
 }
 

@@ -118,3 +118,50 @@ export interface UpdateAccountInput {
 export interface AccountTree extends IAccountResponse {
   children: AccountTree[];
 }
+
+// ================================
+// BULK IMPORT TYPES
+// ================================
+
+/**
+ * Single account item for bulk import.
+ * Uses parentAccountNumber (text) instead of parentAccountId for hierarchy resolution.
+ */
+export interface BulkImportAccountItem {
+  accountNumber: string;
+  name: string;
+  type: AccountType;
+  currencyId: number;
+  description?: string;
+  parentAccountNumber?: string; // Resolved to parentAccountId during import
+  isDetail?: boolean;
+  isActive?: boolean;
+}
+
+/**
+ * Request payload for bulk import endpoint
+ */
+export interface BulkImportRequest {
+  accounts: BulkImportAccountItem[];
+}
+
+/**
+ * Result for a single account in bulk import
+ */
+export interface BulkImportItemResult {
+  accountNumber: string;
+  success: boolean;
+  id?: number;
+  error?: string;
+}
+
+/**
+ * Response from bulk import endpoint
+ */
+export interface BulkImportResponse {
+  success: boolean;
+  totalProcessed: number;
+  successCount: number;
+  errorCount: number;
+  results: BulkImportItemResult[];
+}

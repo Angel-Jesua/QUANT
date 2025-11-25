@@ -138,6 +138,26 @@ async function main() {
   })
   console.log('✅ Base currency created:', { id: usd.id, code: usd.code, symbol: usd.symbol })
 
+  // Seed Nicaraguan Córdoba (NIO)
+  const nio = await prisma.currency.upsert({
+    where: { code: 'NIO' },
+    update: {
+      exchangeRate: new Prisma.Decimal('36.500000'),
+      updatedById: admin.id,
+    },
+    create: {
+      code: 'NIO',
+      name: 'Córdoba Nicaragüense',
+      symbol: 'C$',
+      decimalPlaces: 2,
+      isBaseCurrency: false,
+      exchangeRate: new Prisma.Decimal('36.500000'), // Approximate exchange rate
+      isActive: true,
+      createdById: admin.id,
+    },
+  })
+  console.log('✅ Currency created:', { id: nio.id, code: nio.code, symbol: nio.symbol })
+
   // Seed example clients
   const clientsData = [
     { clientCode: 'CUST-001', taxId: 'RUC001', name: 'Cliente Alfa', email: 'alfa@example.com', phone: '505-555-0001', address: 'Managua', city: 'Managua' },

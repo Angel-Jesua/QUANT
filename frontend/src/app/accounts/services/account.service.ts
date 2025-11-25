@@ -1,8 +1,20 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../../shared/constants/api.constants';
 import { Account, CreateAccountDto, UpdateAccountDto } from '../models/account.model';
+import type { BulkImportRequest, BulkImportResponse } from '../components/account-import';
+
+interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 @Injectable({
   providedIn: 'root'
@@ -12,7 +24,9 @@ export class AccountService {
   private apiUrl = `${API_BASE_URL}/accounts`;
 
   getAccounts(): Observable<Account[]> {
-    return this.http.get<Account[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Account>>(this.apiUrl).pipe(
+      map(response => response.data || [])
+    );
   }
 
   getAccount(id: string): Observable<Account> {
@@ -29,5 +43,15 @@ export class AccountService {
 
   deleteAccount(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Bulk import accounts from pre-processed Excel data
+   */
+  bulkImport(request: BulkImportRequest): Observable<{ success: boolean; data: BulkImportResponse }> {
+    return this.http.post<{ success: boolean; data: BulkImportResponse }>(
+      `${this.apiUrl}/bulk-import`,
+      request
+    );
   }
 }

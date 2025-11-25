@@ -8,6 +8,59 @@ import {
 
 const prisma = new PrismaClient();
 
+/**
+ * Normalize account type string to Prisma AccountType enum.
+ * Maps common variations to the correct enum value.
+ */
+function normalizeAccountType(typeString: string): AccountType {
+  const normalized = typeString.trim().toLowerCase();
+  
+  // Direct matches
+  const typeMap: Record<string, AccountType> = {
+    'activo': AccountType.Activo,
+    'activos': AccountType.Activo,
+    'activo corriente': AccountType.Activo,
+    'activo no corriente': AccountType.Activo,
+    'activo fijo': AccountType.Activo,
+    'pasivo': AccountType.Pasivo,
+    'pasivos': AccountType.Pasivo,
+    'pasivo corriente': AccountType.Pasivo,
+    'pasivo no corriente': AccountType.Pasivo,
+    'capital': AccountType.Capital,
+    'patrimonio': AccountType.Capital,
+    'capital contable': AccountType.Capital,
+    'costos': AccountType.Costos,
+    'costo': AccountType.Costos,
+    'costo de venta': AccountType.Costos,
+    'costo de ventas': AccountType.Costos,
+    'ingresos': AccountType.Ingresos,
+    'ingreso': AccountType.Ingresos,
+    'ventas': AccountType.Ingresos,
+    'otros ingresos': AccountType.Ingresos,
+    'gastos': AccountType.Gastos,
+    'gasto': AccountType.Gastos,
+    'gastos operativos': AccountType.Gastos,
+    'gastos administrativos': AccountType.Gastos,
+    'gastos de operacion': AccountType.Gastos,
+  };
+
+  if (typeMap[normalized]) {
+    return typeMap[normalized];
+  }
+
+  // Partial match - check if type contains key words
+  if (normalized.includes('activo')) return AccountType.Activo;
+  if (normalized.includes('pasivo')) return AccountType.Pasivo;
+  if (normalized.includes('capital') || normalized.includes('patrimonio')) return AccountType.Capital;
+  if (normalized.includes('costo')) return AccountType.Costos;
+  if (normalized.includes('ingreso') || normalized.includes('venta')) return AccountType.Ingresos;
+  if (normalized.includes('gasto')) return AccountType.Gastos;
+
+  // Default to Activo if no match (or throw error)
+  console.warn(`Unknown account type: "${typeString}", defaulting to Activo`);
+  return AccountType.Activo;
+}
+
 // CK_nature_by_type business rules (Spanish AccountType mapping)
 const PARENT_TYPES: ReadonlyArray<AccountType> = [
   AccountType.Activo,
@@ -662,5 +715,201 @@ export class AccountService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Bulk import accounts with hierarchical order resolution.
+   * Uses parentAccountNumber to resolve parentAccountId during import.
+   */
+  async bulkImport(
+    accounts: import('./account.types').BulkImportAccountItem[],
+    requestContext?: IRequestContext
+  ): Promise<import('./account.types').BulkImportResponse> {
+    if (!requestContext?.userId) {
+      throw new Error('AUTH_REQUIRED');
+    }
+
+    const results: import('./account.types').BulkImportItemResult[] = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Normalize account numbers and build lookup
+    const normalizedAccounts = accounts.map((acc) => ({
+      ...acc,
+      accountNumber: acc.accountNumber.trim().toUpperCase(),
+      parentAccountNumber: acc.parentAccountNumber?.trim().toUpperCase() || undefined,
+      name: acc.name.trim(),
+    }));
+
+    // Sort accounts by hierarchy level (parents first)
+    const sortedAccounts = this.sortByHierarchy(normalizedAccounts);
+
+    // Map to track created account numbers -> IDs (within this import)
+    const createdAccountMap = new Map<string, number>();
+
+    // Also load existing accounts to resolve parent references
+    const existingAccounts = await prisma.account.findMany({
+      select: { id: true, accountNumber: true },
+    });
+    const existingMap = new Map<string, number>();
+    existingAccounts.forEach((a) => existingMap.set(a.accountNumber, a.id));
+
+    // Process within a transaction for atomicity
+    // Increase timeout to 60 seconds for large imports
+    await prisma.$transaction(async (tx) => {
+      for (const account of sortedAccounts) {
+        try {
+          // Check for duplicates in DB
+          const existingId = existingMap.get(account.accountNumber);
+          if (existingId) {
+            results.push({
+              accountNumber: account.accountNumber,
+              success: false,
+              error: 'DUPLICATE_ACCOUNT_NUMBER',
+            });
+            errorCount++;
+            continue;
+          }
+
+          // Resolve parentAccountId
+          let parentAccountId: number | null = null;
+          if (account.parentAccountNumber) {
+            // First check if parent was created in this import
+            const importedParentId = createdAccountMap.get(account.parentAccountNumber);
+            if (importedParentId) {
+              parentAccountId = importedParentId;
+            } else {
+              // Check in existing DB accounts
+              const dbParentId = existingMap.get(account.parentAccountNumber);
+              if (dbParentId) {
+                parentAccountId = dbParentId;
+              } else {
+                results.push({
+                  accountNumber: account.accountNumber,
+                  success: false,
+                  error: `Cuenta padre no encontrada: ${account.parentAccountNumber}`,
+                });
+                errorCount++;
+                continue;
+              }
+            }
+          }
+
+          // Validate currency exists
+          const currency = await tx.currency.findUnique({
+            where: { id: account.currencyId },
+            select: { id: true },
+          });
+          if (!currency) {
+            results.push({
+              accountNumber: account.accountNumber,
+              success: false,
+              error: 'INVALID_CURRENCY',
+            });
+            errorCount++;
+            continue;
+          }
+
+          // Create account
+          const created = await tx.account.create({
+            data: {
+              accountNumber: account.accountNumber,
+              name: account.name,
+              description: account.description?.trim() || null,
+              type: normalizeAccountType(account.type),
+              currencyId: account.currencyId,
+              parentAccountId,
+              isDetail: account.isDetail ?? true,
+              isActive: account.isActive ?? true,
+              createdById: requestContext.userId as number,
+            },
+          });
+
+          // Track created account for child resolution
+          createdAccountMap.set(account.accountNumber, created.id);
+          existingMap.set(account.accountNumber, created.id);
+
+          results.push({
+            accountNumber: account.accountNumber,
+            success: true,
+            id: created.id,
+          });
+          successCount++;
+
+        } catch (err: any) {
+          const errorMsg = err?.code === 'P2002'
+            ? 'Cuenta ya existe en la base de datos'
+            : (err instanceof Error ? err.message : 'Unknown error');
+
+          results.push({
+            accountNumber: account.accountNumber,
+            success: false,
+            error: errorMsg,
+          });
+          errorCount++;
+        }
+      }
+
+      // Note: We no longer throw on all failures - let partial imports succeed
+      // and return detailed results to the client
+    }, {
+      timeout: 60000, // 60 seconds timeout for large imports
+      maxWait: 10000, // Max time to wait for transaction slot
+    });
+
+    // Audit log the bulk import
+    await prisma.userAuditLog.create({
+      data: {
+        userId: requestContext.userId,
+        action: AuditAction.create,
+        entityType: 'account',
+        newData: {
+          operation: 'bulk_import',
+          totalProcessed: accounts.length,
+          successCount,
+          errorCount,
+        },
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        success: successCount > 0,
+        performedAt: new Date(),
+      },
+    });
+
+    return {
+      success: successCount > 0,
+      totalProcessed: accounts.length,
+      successCount,
+      errorCount,
+      results,
+    };
+  }
+
+  /**
+   * Sort accounts so parents come before children.
+   * Uses accountNumber structure to determine hierarchy level.
+   */
+  private sortByHierarchy(
+    accounts: import('./account.types').BulkImportAccountItem[]
+  ): import('./account.types').BulkImportAccountItem[] {
+    // Create a map of accountNumber -> account for quick lookup
+    const accountMap = new Map<string, import('./account.types').BulkImportAccountItem>();
+    accounts.forEach((a) => accountMap.set(a.accountNumber, a));
+
+    // Calculate depth (number of parent levels) for each account
+    const getDepth = (acc: import('./account.types').BulkImportAccountItem): number => {
+      if (!acc.parentAccountNumber) return 0;
+      const parent = accountMap.get(acc.parentAccountNumber);
+      if (!parent) return 0; // Parent is external (already in DB)
+      return 1 + getDepth(parent);
+    };
+
+    // Sort by depth (ascending) then by accountNumber
+    return [...accounts].sort((a, b) => {
+      const depthA = getDepth(a);
+      const depthB = getDepth(b);
+      if (depthA !== depthB) return depthA - depthB;
+      return a.accountNumber.localeCompare(b.accountNumber);
+    });
   }
 }
