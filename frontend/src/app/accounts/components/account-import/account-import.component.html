@@ -229,10 +229,22 @@
   <!-- Step 3: Hierarchy -->
   @if (currentStep() === 'hierarchy') {
     <section class="wizard-content hierarchy-step">
-      <p class="hierarchy-instructions">
-        Verifique y ajuste la cuenta padre de cada cuenta. La jerarquía fue inferida automáticamente
-        pero puede corregirla si es necesario.
-      </p>
+      <div class="hierarchy-header">
+        <div class="hierarchy-info">
+          <h3>✨ Jerarquía Detectada Automáticamente</h3>
+          <p class="hierarchy-instructions">
+            El sistema ha inferido automáticamente la estructura jerárquica basándose en los números de cuenta.
+            Solo necesita revisar si hay algo incorrecto.
+          </p>
+        </div>
+        
+        @if (validRowCount() > 0 && errorRowCount() === 0) {
+          <div class="auto-detected-badge">
+            <span class="badge-icon">✓</span>
+            <span>Todo listo - puede continuar directamente</span>
+          </div>
+        }
+      </div>
 
       <div class="preview-summary">
         <div class="summary-card valid">
@@ -243,27 +255,33 @@
           <span class="count">{{ errorRowCount() }}</span>
           <span class="label">Con errores</span>
         </div>
+        <div class="summary-card info">
+          <span class="count">{{ getAutoDetectedParentCount() }}</span>
+          <span class="label">Padres detectados</span>
+        </div>
       </div>
 
       <div class="hierarchy-table-container">
         <table class="hierarchy-table">
           <thead>
             <tr>
-              <th>Nivel</th>
-              <th>Número de Cuenta</th>
-              <th>Nombre</th>
-              <th>Tipo</th>
-              <th>Cuenta Padre</th>
-              <th>Acciones</th>
+              <th class="col-level">Nivel</th>
+              <th class="col-number">Número de Cuenta</th>
+              <th class="col-name">Nombre</th>
+              <th class="col-type">Tipo</th>
+              <th class="col-parent">Cuenta Padre</th>
+              <th class="col-actions">Editar</th>
             </tr>
           </thead>
           <tbody>
             @for (row of previewRows(); track $index; let idx = $index) {
-              <tr [class.error-row]="row.hasError" [class.grouping-row]="!row.isDetail">
+              <tr [class.error-row]="row.hasError" [class.grouping-row]="!row.isDetail" [class.has-parent]="row.parentAccountNumber">
                 <td class="level-cell">
                   <span class="level-indicator" [attr.data-level]="row.level">{{ row.level }}</span>
                 </td>
-                <td class="account-number">{{ row.accountNumber }}</td>
+                <td class="account-number">
+                  <code>{{ row.accountNumber }}</code>
+                </td>
                 <td class="account-name">
                   @if (!row.isDetail) {
                     <strong>{{ row.name }}</strong>

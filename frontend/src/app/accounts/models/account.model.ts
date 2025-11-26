@@ -1,15 +1,38 @@
 export interface Account {
-  id: string;
-  code: string;
+  id: number;
+  accountNumber: string;
   name: string;
   type: string;
-  currency: string;
-  status: boolean;
+  currencyId: number;
+  isActive: boolean;
   description?: string;
-  parentId?: string;
+  parentAccountId?: number;
   isDetail: boolean;
+  // Extended fields from API response
+  currency?: {
+    id: number;
+    code: string;
+    name: string;
+  };
 }
 
-export interface CreateAccountDto extends Omit<Account, 'id'> {}
+/** Account with hierarchical structure for tree display */
+export interface AccountTreeNode extends Account {
+  children: AccountTreeNode[];
+  level: number;
+  isExpanded: boolean;
+  hasChildren: boolean;
+}
+
+export interface CreateAccountDto {
+  accountNumber: string;
+  name: string;
+  type: string;
+  currencyId: number;
+  description?: string;
+  parentAccountId?: number;
+  isDetail?: boolean;
+  isActive?: boolean;
+}
 
 export interface UpdateAccountDto extends Partial<CreateAccountDto> {}

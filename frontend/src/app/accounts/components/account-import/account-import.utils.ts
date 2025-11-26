@@ -10,6 +10,9 @@ import {
   BulkImportAccountItem,
   ImportPreviewRow,
   getPredefinedAccountNumbers,
+  AccountType,
+  PREDEFINED_PARENT_ACCOUNTS,
+  ParentAccountOption,
 } from './account-import.types';
 
 /**
@@ -90,6 +93,144 @@ export function isGroupingAccount(accountNumber: string): boolean {
 }
 
 /**
+ * Infer account type from account number.
+ * Based on first digit: 1=Activo, 2=Pasivo, 3=Capital, 4=Ingresos, 5=Costos, 6=Gastos
+ */
+export function inferAccountTypeFromNumber(accountNumber: string): AccountType | undefined {
+  const segments = getAccountSegments(accountNumber);
+  if (segments.length === 0) return undefined;
+  
+  const firstDigit = segments[0]?.charAt(0);
+  
+  switch (firstDigit) {
+    case '1': return 'Activo';
+    case '2': return 'Pasivo';
+    case '3': return 'Capital';
+    case '4': return 'Ingresos';
+    case '5': return 'Costos';
+    case '6': return 'Gastos';
+    default: return undefined;
+  }
+}
+
+/**
+ * Get all predefined accounts as a flat map for quick lookup
+ */
+function getPredefinedAccountsMap(): Map<string, ParentAccountOption> {
+  const map = new Map<string, ParentAccountOption>();
+  
+  function addAccount(account: ParentAccountOption) {
+    map.set(account.accountNumber, account);
+    if (account.children) {
+      account.children.forEach(addAccount);
+    }
+  }
+  
+  PREDEFINED_PARENT_ACCOUNTS.forEach(addAccount);
+  return map;
+}
+
+/**
+ * Find the best matching parent account automatically.
+ * Uses intelligent hierarchy detection based on account number structure.
+ * 
+ * Strategy:
+ * 1. Extract the first segment to determine account category (1xx = Activo, etc.)
+ * 2. Analyze the structure to find the closest parent
+ * 3. Match against predefined system accounts first
+ * 4. Then match against other accounts in the import
+ */
+export function findBestParentAccount(
+  accountNumber: string,
+  availableAccounts: Set<string>,
+  predefinedAccounts: Map<string, ParentAccountOption>
+): string | undefined {
+  const segments = getAccountSegments(accountNumber);
+  if (segments.length < 1) return undefined;
+  
+  const firstSegment = segments[0] || '000';
+  const secondSegment = segments[1] || '000';
+  const thirdSegment = segments[2] || '000';
+  
+  const firstValue = parseInt(firstSegment, 10);
+  const secondValue = parseInt(secondSegment, 10);
+  const thirdValue = parseInt(thirdSegment, 10);
+  
+  // If all segments are zero, no parent needed
+  if (firstValue === 0) return undefined;
+  
+  // Get the main category (first digit * 100)
+  const mainCategory = Math.floor(firstValue / 100) * 100;
+  
+  // Build potential parents from most specific to most general
+  const potentialParents: string[] = [];
+  
+  // If third segment has value, parent could be the account without third segment
+  if (thirdValue > 0) {
+    // Try exact parent in second segment
+    const parentWithSecond = `${firstSegment}-${secondSegment}-000`;
+    potentialParents.push(parentWithSecond);
+    
+    // Try decreasing third segment
+    if (thirdValue > 1) {
+      const prevThird = String(thirdValue - 1).padStart(3, '0');
+      potentialParents.push(`${firstSegment}-${secondSegment}-${prevThird}`);
+    }
+  }
+  
+  // If second segment has value, try parent with zeroed second segment
+  if (secondValue > 0) {
+    // Try the exact level 2 parent (e.g., 111-000-000 for 111-100-000)
+    const parentFirstOnly = `${firstSegment}-000-000`;
+    potentialParents.push(parentFirstOnly);
+    
+    // Try decreasing second segment
+    if (secondValue > 1) {
+      const prevSecond = String(secondValue - 1).padStart(3, '0');
+      potentialParents.push(`${firstSegment}-${prevSecond}-000`);
+    }
+  }
+  
+  // Handle first segment hierarchy
+  const firstDigit = parseInt(firstSegment.charAt(0), 10);
+  const secondDigit = parseInt(firstSegment.charAt(1), 10);
+  const thirdDigitOfFirst = parseInt(firstSegment.charAt(2), 10);
+  
+  // If third digit of first segment is non-zero (e.g., 111 -> parent 110)
+  if (thirdDigitOfFirst > 0 && secondValue === 0 && thirdValue === 0) {
+    const parentSecondDigit = `${firstDigit}${secondDigit}0-000-000`;
+    potentialParents.push(parentSecondDigit);
+  }
+  
+  // If second digit of first segment is non-zero (e.g., 110 -> parent 100)
+  if (secondDigit > 0 && thirdDigitOfFirst === 0 && secondValue === 0 && thirdValue === 0) {
+    const parentFirstDigit = `${firstDigit}00-000-000`;
+    potentialParents.push(parentFirstDigit);
+  }
+  
+  // Add main category parents (predefined)
+  const mainCategoryStr = String(mainCategory).padStart(3, '0');
+  potentialParents.push(`${mainCategoryStr}-000-000`);
+  
+  // Search for the best match
+  // First, check in the import file accounts
+  for (const parent of potentialParents) {
+    if (parent !== accountNumber && availableAccounts.has(parent)) {
+      return parent;
+    }
+  }
+  
+  // Then, check in predefined system accounts
+  for (const parent of potentialParents) {
+    if (parent !== accountNumber && predefinedAccounts.has(parent)) {
+      return parent;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
  * Find the potential parent account number by zeroing out trailing segments.
  * Example: "111-100-001" -> tries "111-100-000", then "111-000-000", then "110-000-000"
  */
@@ -155,14 +296,6 @@ export function inferParentAccountNumber(
 }
 
 /**
- * Clean account type text - returns trimmed string or undefined if empty
- */
-export function cleanAccountType(typeText: string): string | undefined {
-  const cleaned = typeText.trim();
-  return cleaned.length > 0 ? cleaned : undefined;
-}
-
-/**
  * Resolve currency code to currency ID
  */
 export function resolveCurrencyId(
@@ -188,8 +321,64 @@ export function calculateIsDetail(
 }
 
 /**
+ * Normalize account type text to match system types.
+ * Handles common variations and returns the canonical type.
+ */
+export function normalizeAccountType(typeText: string): AccountType | undefined {
+  const cleaned = typeText.trim().toLowerCase();
+  if (!cleaned) return undefined;
+  
+  // Direct matches
+  const directMap: Record<string, AccountType> = {
+    'activo': 'Activo',
+    'activos': 'Activo',
+    'asset': 'Activo',
+    'assets': 'Activo',
+    'pasivo': 'Pasivo',
+    'pasivos': 'Pasivo',
+    'liability': 'Pasivo',
+    'liabilities': 'Pasivo',
+    'capital': 'Capital',
+    'patrimonio': 'Capital',
+    'equity': 'Capital',
+    'ingresos': 'Ingresos',
+    'ingreso': 'Ingresos',
+    'revenue': 'Ingresos',
+    'income': 'Ingresos',
+    'ventas': 'Ingresos',
+    'costos': 'Costos',
+    'costo': 'Costos',
+    'cost': 'Costos',
+    'costs': 'Costos',
+    'gastos': 'Gastos',
+    'gasto': 'Gastos',
+    'expense': 'Gastos',
+    'expenses': 'Gastos',
+  };
+  
+  if (directMap[cleaned]) {
+    return directMap[cleaned];
+  }
+  
+  // Partial matches
+  if (cleaned.includes('activo')) return 'Activo';
+  if (cleaned.includes('pasivo')) return 'Pasivo';
+  if (cleaned.includes('capital') || cleaned.includes('patrimonio')) return 'Capital';
+  if (cleaned.includes('ingreso') || cleaned.includes('venta')) return 'Ingresos';
+  if (cleaned.includes('costo')) return 'Costos';
+  if (cleaned.includes('gasto')) return 'Gastos';
+  
+  return undefined;
+}
+
+/**
  * Process raw Excel rows into import preview rows with all inferences applied.
  * Filters out predefined parent accounts (100-000-000, 110-000-000, etc.)
+ * 
+ * NEW: Automatic intelligent hierarchy detection
+ * - Infers account type from account number if not provided
+ * - Automatically assigns parent accounts based on number structure
+ * - Validates against predefined system accounts
  */
 export function processExcelData(
   rawRows: ExcelRawRow[],
@@ -202,8 +391,9 @@ export function processExcelData(
   const availableAccounts = new Set<string>();
   const accountOccurrences = new Map<string, number>();
   
-  // Get predefined parent account numbers to filter out
-  const predefinedAccounts = getPredefinedAccountNumbers();
+  // Get predefined parent account numbers and map
+  const predefinedAccountNumbers = getPredefinedAccountNumbers();
+  const predefinedAccountsMap = getPredefinedAccountsMap();
   
   // Resolve default currency ID
   const defaultCurrency = currencies.find(c => c.code.toUpperCase() === defaultCurrencyCode.toUpperCase());
@@ -213,7 +403,7 @@ export function processExcelData(
   // Skip predefined parent accounts
   for (const row of rawRows) {
     const accountNumber = String(row[mapping.accountNumber] ?? '').trim().toUpperCase();
-    if (accountNumber && !predefinedAccounts.has(accountNumber)) {
+    if (accountNumber && !predefinedAccountNumbers.has(accountNumber)) {
       availableAccounts.add(accountNumber);
       accountOccurrences.set(accountNumber, (accountOccurrences.get(accountNumber) ?? 0) + 1);
     }
@@ -227,17 +417,16 @@ export function processExcelData(
     }
   });
 
-  // Second pass: infer parent-child relationships
-  // Include predefined accounts as potential parents
-  const allPotentialParents = new Set([...availableAccounts, ...predefinedAccounts]);
+  // Second pass: infer parent-child relationships using intelligent detection
   const parentNumbers = new Set<string>();
   const accountParentMap = new Map<string, string | undefined>();
 
   for (const row of rawRows) {
     const accountNumber = String(row[mapping.accountNumber] ?? '').trim().toUpperCase();
-    if (!accountNumber || predefinedAccounts.has(accountNumber)) continue;
+    if (!accountNumber || predefinedAccountNumbers.has(accountNumber)) continue;
 
-    const parent = inferParentAccountNumber(accountNumber, allPotentialParents);
+    // Use the new intelligent parent detection
+    const parent = findBestParentAccount(accountNumber, availableAccounts, predefinedAccountsMap);
     accountParentMap.set(accountNumber, parent);
     if (parent) {
       parentNumbers.add(parent);
@@ -257,12 +446,20 @@ export function processExcelData(
     }
 
     // Skip predefined parent accounts
-    if (predefinedAccounts.has(accountNumber)) {
+    if (predefinedAccountNumbers.has(accountNumber)) {
       continue;
     }
 
-    // Get type directly from Excel column (any string value is valid)
-    const type = cleanAccountType(typeRaw);
+    // INTELLIGENT TYPE DETECTION:
+    // 1. First try to normalize the type from Excel
+    // 2. If not valid, infer from account number
+    let type = normalizeAccountType(typeRaw);
+    const inferredType = inferAccountTypeFromNumber(accountNumber);
+    
+    // Use inferred type if Excel type is not valid
+    if (!type && inferredType) {
+      type = inferredType;
+    }
     
     // Try to resolve currency: from Excel column first, then default currency
     let currencyId = resolveCurrencyId(currencyRaw, currencies);
@@ -280,7 +477,7 @@ export function processExcelData(
     const isGrouping = isGroupingAccount(accountNumber);
 
     // Check for errors:
-    // - Type is required (but any non-empty value is valid)
+    // - Type is required (but we can infer it)
     // - Currency validation depends on skipCurrencyValidation flag
     // - Duplicate account numbers in the same file are errors
     const isDuplicate = duplicateAccounts.has(accountNumber);
@@ -300,7 +497,7 @@ export function processExcelData(
     const errorMessage = isDuplicate
       ? `Número de cuenta duplicado en el archivo`
       : !type
-        ? `Tipo de cuenta requerido`
+        ? `Tipo de cuenta no reconocido: "${typeRaw}" (esperado: Activo, Pasivo, Capital, Ingresos, Costos, Gastos)`
         : invalidCurrency
           ? `Moneda no reconocida: "${currencyRaw}"`
           : missingCurrency
@@ -333,11 +530,8 @@ export function processExcelData(
     });
   }
 
-  // Sort by level then account number for hierarchical display
-  previewRows.sort((a, b) => {
-    if (a.level !== b.level) return a.level - b.level;
-    return a.accountNumber.localeCompare(b.accountNumber);
-  });
+  // Sort by account number for logical hierarchical display
+  previewRows.sort((a, b) => a.accountNumber.localeCompare(b.accountNumber));
 
   return previewRows;
 }

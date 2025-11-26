@@ -530,7 +530,11 @@ export class AccountController {
         userId: (req as any).userId ?? (req as any).user?.id,
       };
 
-      const result = await this.accountService.bulkImport(body.accounts, requestContext);
+      const result = await this.accountService.bulkImport(
+        body.accounts,
+        requestContext,
+        body.updateExisting ?? false
+      );
 
       res.status(200).json({
         success: true,

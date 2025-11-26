@@ -8,9 +8,55 @@ $border-color: #E2E8F0;
 $font-primary: 'Poppins', sans-serif;
 $font-secondary: 'Inter', sans-serif;
 
+// Level colors for visual hierarchy
+$level-0-bg: #f0f9ff;
+$level-1-bg: #fefce8;
+$level-2-bg: #f0fdf4;
+$level-3-bg: transparent;
+
+// Table controls
+.table-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.expand-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: $card-bg;
+  border: 1px solid $border-color;
+  border-radius: 8px;
+  color: $text-muted;
+  font-size: 13px;
+  font-family: $font-secondary;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: $bg-color;
+    color: $primary-color;
+    border-color: $primary-color;
+  }
+}
+
 .table-wrapper {
   overflow-x: auto;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid $border-color;
   background: $card-bg;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
@@ -39,39 +85,123 @@ $font-secondary: 'Inter', sans-serif;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1000px;
+  min-width: 900px;
 
   thead {
     background: #F8FAFC;
 
     th {
-      padding: 16px 24px;
+      padding: 14px 20px;
       text-align: left;
       color: $text-muted;
       font-family: $font-secondary;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
       border-bottom: 1px solid $border-color;
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: #F8FAFC;
+      z-index: 10;
 
-      &:first-child {
-        padding-left: 32px;
+      &.col-code {
+        width: 200px;
+        padding-left: 24px;
       }
 
-      &:last-child {
-        padding-right: 32px;
+      &.col-name {
+        min-width: 280px;
+      }
+
+      &.col-type {
+        width: 140px;
+      }
+
+      &.col-currency {
+        width: 100px;
+      }
+
+      &.col-status {
+        width: 100px;
+        text-align: center;
+      }
+
+      &.col-actions {
+        width: 100px;
+        text-align: center;
       }
     }
   }
 
   tbody {
-    tr {
-      transition: background-color 0.2s ease;
+    .account-row {
+      transition: background-color 0.15s ease;
 
       &:hover {
-        background-color: #F8FAFC;
+        background-color: rgba(0, 98, 255, 0.04) !important;
+      }
+
+      // Level-based styling
+      &.level-0 {
+        background-color: $level-0-bg;
+        
+        .account-name {
+          font-weight: 600;
+          color: #0369a1;
+        }
+
+        .account-code {
+          color: #0369a1;
+        }
+      }
+
+      &.level-1 {
+        background-color: $level-1-bg;
+        
+        .account-name {
+          font-weight: 600;
+          color: #a16207;
+        }
+
+        .account-code {
+          color: #a16207;
+        }
+      }
+
+      &.level-2 {
+        background-color: $level-2-bg;
+        
+        .account-name {
+          font-weight: 500;
+          color: #15803d;
+        }
+
+        .account-code {
+          color: #15803d;
+        }
+      }
+
+      &.level-3 {
+        background-color: transparent;
+      }
+
+      // Parent row styling
+      &.is-parent {
+        cursor: pointer;
+
+        &:not(.is-expanded) {
+          border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+      }
+
+      // Detail account styling
+      &.is-detail {
+        .account-name {
+          font-weight: 400;
+          color: $text-color;
+        }
       }
 
       &:last-child td {
@@ -80,99 +210,219 @@ $font-secondary: 'Inter', sans-serif;
     }
 
     td {
-      padding: 20px 24px;
+      padding: 14px 20px;
       border-bottom: 1px solid $border-color;
       vertical-align: middle;
       color: $text-color;
       font-family: $font-secondary;
-      font-size: 14px;
+      font-size: 13px;
+    }
 
-      &:first-child {
-        padding-left: 32px;
+    .cell-code {
+      padding-left: 16px;
+    }
+
+    .code-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      color: $text-muted;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+
+      svg {
+        transition: transform 0.2s ease;
       }
 
-      &:last-child {
-        padding-right: 32px;
+      &:hover {
+        background: rgba(0, 98, 255, 0.1);
+        color: $primary-color;
       }
 
-      .account-name {
+      &.expanded {
+        svg {
+          transform: rotate(90deg);
+        }
+      }
+    }
+
+    .indent-spacer {
+      width: 24px;
+      flex-shrink: 0;
+    }
+
+    .account-code {
+      font-family: 'JetBrains Mono', 'Roboto Mono', 'Consolas', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+    }
+
+    .account-name {
+      font-weight: 400;
+      color: $text-color;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      &.parent-name {
         font-weight: 500;
-        color: $text-color;
       }
-      
-      .account-code {
-        font-size: 13px;
-        color: $text-color;
-        font-family: 'Roboto Mono', monospace;
-        font-weight: 500;
+    }
+
+    .children-count {
+      font-size: 11px;
+      color: $text-muted;
+      font-weight: 400;
+    }
+
+    .type-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      background: #f1f5f9;
+      color: $text-muted;
+
+      &[data-type="Activo"] {
+        background: #dbeafe;
+        color: #1e40af;
       }
 
-      .toggle-switch {
-        width: 44px;
-        height: 24px;
-        background-color: #E2E8F0;
-        border-radius: 12px;
-        position: relative;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
+      &[data-type="Pasivo"] {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      &[data-type="Capital"] {
+        background: #f3e8ff;
+        color: #7c3aed;
+      }
+
+      &[data-type="Ingresos"] {
+        background: #dcfce7;
+        color: #166534;
+      }
+
+      &[data-type="Costos"] {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      &[data-type="Gastos"] {
+        background: #ffedd5;
+        color: #c2410c;
+      }
+    }
+
+    .currency-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #f8fafc;
+      color: $text-muted;
+      border: 1px solid $border-color;
+    }
+
+    .text-muted {
+      color: #cbd5e1;
+    }
+
+    .cell-status {
+      text-align: center;
+    }
+
+    .toggle-switch {
+      width: 40px;
+      height: 22px;
+      background-color: #E2E8F0;
+      border-radius: 11px;
+      position: relative;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      display: inline-block;
+
+      .toggle-knob {
+        width: 18px;
+        height: 18px;
+        background-color: #FFFFFF;
+        border-radius: 50%;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      &.active {
+        background-color: #22c55e;
 
         .toggle-knob {
-          width: 20px;
-          height: 20px;
-          background-color: #FFFFFF;
-          border-radius: 50%;
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        &.active {
-          background-color: $primary-color;
-
-          .toggle-knob {
-            transform: translateX(20px);
-          }
+          transform: translateX(18px);
         }
       }
+    }
 
-      .action-buttons {
+    .cell-actions {
+      text-align: center;
+    }
+
+    .action-buttons {
+      display: inline-flex;
+      gap: 4px;
+
+      .btn-action {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: $text-muted;
+        cursor: pointer;
         display: flex;
-        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
 
-        .btn-action {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          border: none;
-          background: transparent;
-          color: $text-muted;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
+        svg {
+          width: 16px;
+          height: 16px;
+        }
 
-          svg {
-            width: 18px;
-            height: 18px;
-          }
+        &:hover {
+          background-color: #F1F5F9;
+          color: $primary-color;
+        }
 
-          &:hover {
-            background-color: #F1F5F9;
-            color: $primary-color;
-          }
+        &.btn-view:hover {
+          color: $primary-color;
+          background-color: rgba(0, 98, 255, 0.1);
+        }
 
-          &.btn-view:hover {
-            color: $primary-color;
-            background-color: rgba(0, 98, 255, 0.1);
-          }
-
-          &.btn-edit:hover {
-            color: #F59E0B;
-            background-color: rgba(245, 158, 11, 0.1);
-          }
+        &.btn-edit:hover {
+          color: #F59E0B;
+          background-color: rgba(245, 158, 11, 0.1);
         }
       }
     }
@@ -181,9 +431,31 @@ $font-secondary: 'Inter', sans-serif;
 
 .no-data {
   text-align: center;
-  padding: 40px !important;
+  padding: 60px 20px !important;
+  background: transparent !important;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   color: $text-muted;
-  font-style: italic;
+
+  svg {
+    color: #cbd5e1;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: $text-color;
+  }
+
+  span {
+    font-size: 13px;
+  }
 }
 
 

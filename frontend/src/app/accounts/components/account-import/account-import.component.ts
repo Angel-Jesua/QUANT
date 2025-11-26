@@ -79,6 +79,9 @@ export class AccountImportComponent implements OnInit {
   
   // Skip currency validation (not recommended)
   skipCurrencyValidation = signal<boolean>(false);
+  
+  // Update existing accounts instead of failing on duplicates
+  updateExisting = signal<boolean>(true);
 
   // Preview data
   previewRows = signal<ImportPreviewRow[]>([]);
@@ -119,6 +122,11 @@ export class AccountImportComponent implements OnInit {
   
   // Check if too many errors to import
   tooManyErrors = computed(() => this.errorRowCount() >= this.MAX_ALLOWED_ERRORS);
+  
+  /** Get count of accounts with automatically detected parents */
+  getAutoDetectedParentCount(): number {
+    return this.previewRows().filter(r => r.parentAccountNumber).length;
+  }
   
   /** Get available parent options for a given account */
   getParentOptions = (accountNumber: string): ImportPreviewRow[] => {
@@ -369,7 +377,10 @@ export class AccountImportComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.accountService.bulkImport({ accounts: items }).subscribe({
+    this.accountService.bulkImport({ 
+      accounts: items,
+      updateExisting: this.updateExisting()
+    }).subscribe({
       next: (response) => {
         this.importResult.set(response.data);
         this.currentStep.set('result');
@@ -415,6 +426,7 @@ export class AccountImportComponent implements OnInit {
     });
     this.defaultCurrency.set('');
     this.skipCurrencyValidation.set(false);
+    this.updateExisting.set(true);
     this.previewRows.set([]);
     this.importResult.set(null);
     this.errorMessage.set(null);

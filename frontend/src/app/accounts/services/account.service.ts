@@ -29,7 +29,7 @@ export class AccountService {
     );
   }
 
-  getAccount(id: string): Observable<Account> {
+  getAccount(id: number): Observable<Account> {
     return this.http.get<Account>(`${this.apiUrl}/${id}`);
   }
 
@@ -37,11 +37,11 @@ export class AccountService {
     return this.http.post<Account>(this.apiUrl, account);
   }
 
-  updateAccount(id: string, account: UpdateAccountDto): Observable<Account> {
+  updateAccount(id: number, account: UpdateAccountDto): Observable<Account> {
     return this.http.put<Account>(`${this.apiUrl}/${id}`, account);
   }
 
-  deleteAccount(id: string): Observable<void> {
+  deleteAccount(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 

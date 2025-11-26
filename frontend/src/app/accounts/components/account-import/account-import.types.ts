@@ -45,6 +45,8 @@ export interface BulkImportAccountItem {
 /** Request payload for bulk import endpoint */
 export interface BulkImportRequest {
   accounts: BulkImportAccountItem[];
+  /** If true, existing accounts will be updated instead of returning an error */
+  updateExisting?: boolean;
 }
 
 /** Result for a single account in bulk import response */
@@ -61,6 +63,8 @@ export interface BulkImportResponse {
   totalProcessed: number;
   successCount: number;
   errorCount: number;
+  /** Number of accounts updated (when updateExisting is true) */
+  updatedCount?: number;
   results: BulkImportItemResult[];
 }
 
