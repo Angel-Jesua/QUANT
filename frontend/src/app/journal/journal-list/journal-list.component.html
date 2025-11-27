@@ -1,0 +1,132 @@
+<div class="journal-wrapper">
+  <app-sidebar></app-sidebar>
+  
+  <div class="journal-container">
+    <header class="page-header">
+      <h1 class="company-title">IURIS CONSULTUS S.A</h1>
+    </header>
+
+    <div class="header-section">
+      <h2 class="section-title">Libro Diario</h2>
+      <button class="btn-primary" routerLink="new">
+        <span class="icon">+</span> Nuevo Asiento
+      </button>
+    </div>
+
+    <div class="main-card">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrapper">
+          <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.5 21C16.7467 21 21 16.7467 21 11.5C21 6.25329 16.7467 2 11.5 2C6.25329 2 2 6.25329 2 11.5C2 16.7467 6.25329 21 11.5 21Z" stroke="#7E7E7E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M22 22L20 20" stroke="#7E7E7E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+          </span>
+          <input type="text" placeholder="Buscar por referencia, descripción..." [(ngModel)]="filters.search">
+        </div>
+        
+        <div class="filters-wrapper">
+          <div class="filter-group">
+              <input type="date" [(ngModel)]="filters.startDate" class="date-input">
+              <span class="separator">-</span>
+              <input type="date" [(ngModel)]="filters.endDate" class="date-input">
+          </div>
+          
+          <select [(ngModel)]="filters.status" class="filter-select">
+            <option value="">Todos los Estados</option>
+            <option value="POSTED">Posteado</option>
+            <option value="DRAFT">Borrador</option>
+          </select>
+
+          <select [(ngModel)]="filters.currency" class="filter-select">
+            <option value="">Todas las Monedas</option>
+            <option value="USD">USD</option>
+            <option value="HNL">HNL</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-state" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Cargando asientos contables...</p>
+      </div>
+
+      <!-- Error State -->
+      <div class="error-state" *ngIf="loadError && !loading">
+        <div class="error-icon">❌</div>
+        <p>{{ loadError }}</p>
+        <button class="btn-retry" (click)="loadEntries()">Reintentar</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-responsive" *ngIf="!loading && !loadError">
+        <table class="journal-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>No. Asiento</th>
+              <th>Referencia</th>
+              <th>Descripción</th>
+              <th class="text-right">Total</th>
+              <th class="text-center">Estado</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let entry of journalEntries" class="table-row">
+              <td data-label="Fecha">{{ entry.entryDate | date:'dd/MM/yyyy' }}</td>
+              <td data-label="No. Asiento" class="font-medium">{{ entry.entryNumber }}</td>
+              <td data-label="Referencia">{{ entry.voucherNumber || '-' }}</td>
+              <td data-label="Descripción" class="description-cell" title="{{ entry.description }}">{{ entry.description }}</td>
+              <td data-label="Total" class="text-right font-medium">
+                {{ entry.totalDebit | currency: entry.currencyCode || 'USD' }}
+              </td>
+              <td data-label="Estado" class="text-center">
+                <span class="status-badge" [ngClass]="getStatusClass(entry)">
+                  {{ getStatusLabel(entry) }}
+                </span>
+              </td>
+              <td class="text-right actions-cell">
+                <button class="action-btn view" [routerLink]="[entry.id]" title="Ver">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="#0062FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M12 11V17" stroke="#0062FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M11.9945 7H12.0035" stroke="#0062FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button class="action-btn edit" [routerLink]="['edit', entry.id]" *ngIf="!entry.isPosted" title="Editar">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13" stroke="#0062FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M16.04 3.02001L8.16 10.9C7.86 11.2 7.56 11.79 7.5 12.22L7.07 15.23C6.91 16.32 7.68 17.08 8.77 16.93L11.78 16.5C12.2 16.44 12.79 16.14 13.09 15.84L20.97 7.95001C22.34 6.58001 22.98 5.00001 20.97 2.99001C18.96 0.99001 17.38 1.68001 16.04 3.02001Z" stroke="#0062FF" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="journalEntries.length === 0">
+          <div class="empty-icon">📝</div>
+          <h3>No hay asientos registrados</h3>
+          <p>Comienza creando tu primer asiento contable.</p>
+          <button class="btn-primary" routerLink="new">Crear Asiento</button>
+        </div>
+      </div>
+
+      <!-- Pagination (Mock) -->
+      <div class="pagination">
+        <span class="page-info">Mostrando 1-10 de 50</span>
+        <div class="page-controls">
+          <button class="page-btn" disabled>&lt;</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">&gt;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

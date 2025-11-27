@@ -1,0 +1,165 @@
+<div class="detail-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <div class="detail-container">
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="loading">
+      <p>Cargando asiento contable...</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" *ngIf="error && !loading">
+      <p>{{ error }}</p>
+      <button class="btn-back" routerLink="..">Volver</button>
+    </div>
+
+    <!-- Content -->
+    <ng-container *ngIf="entry && !loading">
+      <div class="header-actions">
+        <button class="btn-back" routerLink="..">
+          <span class="icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.57 5.92993L3.5 11.9999L9.57 18.0699" stroke="#292D32" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20.5 12H3.67004" stroke="#292D32" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          Volver
+        </button>
+        <div class="title-wrapper">
+          <h1 class="page-title">Asiento {{ entry.entryNumber }}</h1>
+          <span class="status-badge" [ngClass]="getStatusClass()">
+            {{ getStatusLabel() }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Success Message -->
+      <div class="success-banner" *ngIf="reverseSuccess">
+        <div class="banner-content">
+          <span class="icon">✅</span>
+          <span>{{ reverseSuccess }}</span>
+        </div>
+        <button class="btn-view" routerLink="..">Ver Lista de Asientos</button>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-banner" *ngIf="reverseError">
+        <div class="banner-content">
+          <span class="icon">❌</span>
+          <span>{{ reverseError }}</span>
+        </div>
+        <button class="btn-dismiss" (click)="reverseError = null">Cerrar</button>
+      </div>
+
+      <!-- Posted Banner -->
+      <div class="posted-banner" *ngIf="entry.isPosted && !entry.isReversed">
+        <div class="banner-content">
+          <span class="icon">🔒</span>
+          <span>Este asiento está posteado y no puede ser editado.</span>
+        </div>
+        <button class="btn-reverse" (click)="reverseEntry()">Revertir Asiento</button>
+      </div>
+
+      <!-- Reversed Banner -->
+      <div class="reversed-banner" *ngIf="entry.isReversed">
+        <div class="banner-content">
+          <span class="icon">↩️</span>
+          <span>Este asiento ha sido reversado.</span>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <!-- Header Info -->
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Fecha</label>
+            <div class="value">{{ entry.entryDate | date:'dd/MM/yyyy' }}</div>
+          </div>
+          <div class="info-item">
+            <label>Referencia</label>
+            <div class="value">{{ entry.voucherNumber || '-' }}</div>
+          </div>
+          <div class="info-item">
+            <label>Moneda</label>
+            <div class="value">{{ entry.currencyCode || 'USD' }}</div>
+          </div>
+          <div class="info-item" *ngIf="entry.currencyCode !== 'USD'">
+            <label>Tasa de Cambio</label>
+            <div class="value">{{ entry.exchangeRate }}</div>
+          </div>
+          <div class="info-item">
+            <label>Voucher</label>
+            <div class="value">{{ entry.voucherNumber || '-' }}</div>
+          </div>
+        </div>
+
+        <div class="description-section">
+          <label>Descripción</label>
+          <div class="value">{{ entry.description }}</div>
+        </div>
+
+        <!-- Lines Table -->
+        <div class="lines-section">
+          <h3>Detalle de Movimientos</h3>
+          <div class="table-responsive">
+            <table class="lines-table">
+              <thead>
+                <tr>
+                  <th>Cuenta</th>
+                  <th>Descripción</th>
+                  <th class="text-right">Débito</th>
+                  <th class="text-right">Crédito</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let line of entry.lines">
+                  <td>
+                    <div class="account-info">
+                      <span class="code">{{ line.accountNumber }}</span>
+                      <span class="name">{{ line.accountName }}</span>
+                    </div>
+                  </td>
+                  <td>{{ line.description || '-' }}</td>
+                  <td class="text-right">{{ line.debitAmount | currency: entry.currencyCode || 'USD' }}</td>
+                  <td class="text-right">{{ line.creditAmount | currency: entry.currencyCode || 'USD' }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td colspan="2" class="text-right label">Totales</td>
+                  <td class="text-right value">{{ totalDebit | currency: entry.currencyCode || 'USD' }}</td>
+                  <td class="text-right value">{{ totalCredit | currency: entry.currencyCode || 'USD' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Audit Info -->
+        <div class="audit-section">
+          <div class="audit-item">
+            <span class="label">Creado por:</span>
+            <span class="value">{{ entry.createdByName || 'N/A' }}</span>
+            <span class="date">el {{ entry.createdAt | date:'medium' }}</span>
+          </div>
+          <div class="audit-item" *ngIf="entry.postedByName">
+            <span class="label">Posteado por:</span>
+            <span class="value">{{ entry.postedByName }}</span>
+            <span class="date">el {{ entry.postedAt | date:'medium' }}</span>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+<!-- Reverse Entry Modal -->
+<app-reverse-modal
+  *ngIf="entry"
+  [isOpen]="showReverseModal"
+  [entryNumber]="entry.entryNumber || ''"
+  [originalDescription]="entry.description"
+  [isLoading]="reversingEntry"
+  (confirm)="confirmReverse($event)"
+  (cancel)="closeReverseModal()">
+</app-reverse-modal>

@@ -1,0 +1,62 @@
+<div class="modal-overlay" *ngIf="isOpen" (click)="onOverlayClick($event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Revertir Asiento Contable</h2>
+      <button class="close-btn" (click)="onCancel()" [disabled]="isLoading">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="warning-banner">
+        <span class="warning-icon">⚠️</span>
+        <div class="warning-text">
+          <strong>Atención:</strong> Esta acción creará un nuevo asiento contable que invierte 
+          los débitos y créditos del asiento original. Esta operación no se puede deshacer.
+        </div>
+      </div>
+
+      <div class="entry-info">
+        <span class="label">Asiento a revertir:</span>
+        <span class="value">{{ entryNumber }}</span>
+      </div>
+
+      <div class="form-group">
+        <label for="reversalDate">Fecha de Reversión *</label>
+        <input 
+          type="date" 
+          id="reversalDate" 
+          [(ngModel)]="reversalDate" 
+          [disabled]="isLoading"
+          required>
+        <small class="hint">La fecha en que se registrará el asiento de reversión</small>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Descripción</label>
+        <textarea 
+          id="description" 
+          [(ngModel)]="description" 
+          [disabled]="isLoading"
+          rows="3"
+          placeholder="Descripción del asiento de reversión"></textarea>
+        <small class="hint">Opcional. Por defecto se genera automáticamente</small>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="onCancel()" [disabled]="isLoading">
+        Cancelar
+      </button>
+      <button 
+        class="btn-confirm" 
+        (click)="onConfirm()" 
+        [disabled]="!reversalDate || isLoading">
+        <span *ngIf="isLoading" class="spinner"></span>
+        {{ isLoading ? 'Procesando...' : 'Confirmar Reversión' }}
+      </button>
+    </div>
+  </div>
+</div>

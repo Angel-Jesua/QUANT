@@ -1,0 +1,525 @@
+@use "sass:color";
+// Variables based on requirements
+$font-primary: 'Poppins', sans-serif;
+$font-secondary: 'Inter', sans-serif;
+
+$color-bg: #F6FBFF;
+$color-card: #FFFFFF;
+$color-input-bg: #F9FBFF;
+$color-primary: #0062FF;
+$color-primary-hover: #109BF1;
+$color-text-header: #03055E;
+$color-text-secondary: #7E7E7E;
+$color-text-placeholder: #B5B7C0;
+$color-error: #f87171;
+$color-success: #4ade80;
+$color-border: #E2E8F0;
+
+$shadow-card: 0 10px 60px rgba(226, 236, 249, 0.5);
+
+.journal-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background-color: $color-bg;
+}
+
+.journal-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 255px; // Sidebar width
+  padding: 40px 30px 20px;
+  min-height: 100vh;
+  background-color: $color-bg;
+  font-family: $font-secondary;
+}
+
+.page-header {
+  margin-bottom: 30px;
+  text-align: center;
+
+  .company-title {
+    color: $color-text-header;
+    font-family: $font-primary;
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+
+  .section-title {
+    font-family: $font-primary;
+    font-size: 22px;
+    font-weight: 600;
+    color: #292D32;
+    margin: 0;
+  }
+
+  .btn-primary {
+    background-color: $color-primary;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-family: $font-primary;
+    font-weight: 500;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: $color-primary-hover;
+    }
+
+    .icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+  }
+}
+
+.main-card {
+  background-color: $color-card;
+  border-radius: 30px;
+  padding: 2rem;
+  box-shadow: $shadow-card;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  .search-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 300px;
+    max-width: 400px;
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: $color-text-secondary;
+      display: flex;
+      align-items: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px 12px 48px;
+      border: 1px solid transparent;
+      background-color: $color-input-bg;
+      border-radius: 10px;
+      font-family: $font-secondary;
+      color: $color-text-header;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+
+      &::placeholder {
+        color: $color-text-placeholder;
+      }
+
+      &:focus {
+        outline: none;
+        border-color: $color-primary;
+        background-color: #fff;
+      }
+    }
+  }
+
+  .filters-wrapper {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      background-color: $color-input-bg;
+      border-radius: 10px;
+      padding: 4px;
+      
+      .date-input {
+        border: none;
+        background: transparent;
+        padding: 8px 12px;
+        font-family: $font-secondary;
+        color: $color-text-secondary;
+        font-size: 14px;
+        
+        &:focus {
+          outline: none;
+        }
+      }
+
+      .separator {
+        color: $color-text-placeholder;
+      }
+    }
+
+    .filter-select {
+      padding: 10px 16px;
+      border: 1px solid transparent;
+      background-color: $color-input-bg;
+      border-radius: 10px;
+      font-family: $font-secondary;
+      color: $color-text-secondary;
+      font-size: 14px;
+      cursor: pointer;
+      min-width: 150px;
+
+      &:focus {
+        outline: none;
+        border-color: $color-primary;
+        background-color: #fff;
+      }
+    }
+  }
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.journal-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  
+  th {
+    text-align: left;
+    padding: 16px;
+    font-family: $font-primary;
+    font-weight: 600;
+    color: $color-text-header;
+    font-size: 14px;
+    border-bottom: 1px solid $color-border;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 16px;
+    font-family: $font-secondary;
+    color: $color-text-secondary;
+    font-size: 14px;
+    border-bottom: 1px solid $color-border;
+    vertical-align: middle;
+  }
+
+  .table-row {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: $color-input-bg;
+    }
+
+    &:last-child td {
+      border-bottom: none;
+    }
+  }
+
+  .font-medium {
+    font-weight: 500;
+    color: $color-text-header;
+  }
+
+  .description-cell {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .text-right {
+    text-align: right;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    
+    &.posted {
+      background-color: rgba($color-success, 0.1);
+      color: color.adjust($color-success, $lightness: -20%);
+    }
+
+    &.draft {
+      background-color: rgba($color-text-secondary, 0.1);
+      color: $color-text-secondary;
+    }
+
+    &.reversed {
+      background-color: rgba($color-error, 0.1);
+      color: color.adjust($color-error, $lightness: -10%);
+    }
+  }
+
+  .actions-cell {
+    white-space: nowrap;
+  }
+
+  .action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 8px;
+    font-size: 16px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+// Loading and Error States
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+
+  p {
+    font-size: 16px;
+    color: $color-text-secondary;
+    margin: 1rem 0;
+  }
+}
+
+.loading-state {
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba($color-primary, 0.2);
+    border-top-color: $color-primary;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-state {
+  .error-icon {
+    font-size: 48px;
+    margin-bottom: 1rem;
+  }
+
+  .btn-retry {
+    background-color: $color-primary;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-family: $font-primary;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 1rem;
+
+    &:hover {
+      background-color: $color-primary-hover;
+    }
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-family: $font-primary;
+    color: $color-text-header;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: $color-text-secondary;
+    margin-bottom: 2rem;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+  }
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid $color-border;
+
+  .page-info {
+    color: $color-text-secondary;
+    font-size: 14px;
+  }
+
+  .page-controls {
+    display: flex;
+    gap: 8px;
+
+    .page-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid $color-border;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      color: $color-text-secondary;
+      font-family: $font-secondary;
+      transition: all 0.2s;
+
+      &:hover:not(:disabled) {
+        border-color: $color-primary;
+        color: $color-primary;
+      }
+
+      &.active {
+        background-color: $color-primary;
+        color: white;
+        border-color: $color-primary;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .header-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    
+    .btn-primary {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+
+    .search-wrapper {
+      max-width: none;
+    }
+
+    .filters-wrapper {
+      flex-direction: column;
+      
+      .filter-select {
+        width: 100%;
+      }
+    }
+  }
+
+  // Mobile Card View for Table
+  .journal-table {
+    display: block;
+    
+    thead {
+      display: none;
+    }
+
+    tbody {
+      display: block;
+    }
+
+    .table-row {
+      display: block;
+      background: white;
+      border: 1px solid $color-border;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      padding: 1rem;
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border: none;
+        text-align: right;
+        
+        &::before {
+          content: attr(data-label); // Need to add data-label in HTML
+          font-weight: 600;
+          color: $color-text-header;
+          margin-right: 1rem;
+          text-align: left;
+        }
+
+        &.description-cell {
+          display: block;
+          text-align: left;
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px solid $color-border;
+          white-space: normal;
+          
+          &::before {
+            display: block;
+            margin-bottom: 4px;
+          }
+        }
+
+        &.actions-cell {
+          justify-content: flex-end;
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px solid $color-border;
+          
+          &::before {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+}

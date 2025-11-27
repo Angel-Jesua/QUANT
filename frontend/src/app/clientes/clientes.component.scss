@@ -1,3 +1,4 @@
+@use "sass:color";
 // Variables
 $primary-color: #03055E;
 $secondary-color: #0062FF;
@@ -338,7 +339,7 @@ $font-secondary: 'Inter', sans-serif;
   box-shadow: 0 4px 6px -1px rgba($primary-color, 0.2);
 
   &:hover:not(:disabled) {
-    background: darken($primary-color, 5%);
+    background: color.adjust($primary-color, $lightness: -5%);
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba($primary-color, 0.3);
   }

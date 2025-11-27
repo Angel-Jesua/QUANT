@@ -26,7 +26,7 @@ export class AccountController {
   async getAllAccounts(req: Request, res: Response): Promise<void> {
     try {
       const page = parsePositiveInt(req.query.page, 1);
-      const pageSize = parseLimit((req.query.pageSize ?? req.query.limit), 20, 100);
+      const pageSize = parseLimit((req.query.pageSize ?? req.query.limit), 20, 1000);
       const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
       const isActiveFilter = parseBooleanQuery(req.query.isActive);
       const isDetailFilter = parseBooleanQuery(req.query.isDetail);

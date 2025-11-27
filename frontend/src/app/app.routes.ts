@@ -40,5 +40,10 @@ export const routes: Routes = [
     path: 'clientes/:id',
     loadComponent: () => import('./clientes/client-detail/client-detail.component').then(m => m.ClientDetailComponent),
     canActivate: [authGuard]
+  },
+  {
+    path: 'asientos',
+    loadChildren: () => import('./journal/journal.routes').then(m => m.JOURNAL_ROUTES),
+    canActivate: [authGuard]
   }
 ];

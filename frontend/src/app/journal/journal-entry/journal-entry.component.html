@@ -1,0 +1,164 @@
+<div class="entry-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <div class="entry-container">
+    <div class="header-actions">
+      <button class="btn-back" routerLink="..">
+        <span class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.57 5.92993L3.5 11.9999L9.57 18.0699" stroke="#292D32" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20.5 12H3.67004" stroke="#292D32" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        Volver
+      </button>
+      <h1 class="page-title">{{ isEditMode ? 'Editar Asiento' : 'Nuevo Asiento' }}</h1>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="loadingAccounts || loadingEntry">
+      <div class="spinner"></div>
+      <p>{{ loadingEntry ? 'Cargando asiento contable...' : 'Cargando datos...' }}</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" *ngIf="loadError && !loadingAccounts && !loadingEntry">
+      <div class="error-icon">❌</div>
+      <p>{{ loadError }}</p>
+      <button class="btn-primary" (click)="isEditMode ? loadAllDataForEdit() : loadInitialData()">Reintentar</button>
+    </div>
+
+    <!-- Form Content -->
+    <ng-container *ngIf="!loadingAccounts && !loadingEntry && !loadError">
+      <form [formGroup]="journalForm" class="entry-form">
+      <!-- Header Section -->
+      <div class="form-card header-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fecha del Asiento</label>
+            <input type="date" formControlName="date">
+          </div>
+          
+          <div class="form-group">
+            <label>Moneda</label>
+            <select formControlName="currency">
+              <option *ngFor="let curr of currencies" [value]="curr.id">{{ curr.code }} - {{ curr.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group" *ngIf="!isBaseCurrencySelected">
+            <label>Tasa de Cambio</label>
+            <input type="number" formControlName="exchangeRate" step="0.0001">
+          </div>
+
+          <div class="form-group">
+            <label>No. Voucher <span class="optional">(Opcional)</span></label>
+            <input type="text" formControlName="voucherNumber" placeholder="Ej. V-123">
+          </div>
+        </div>
+
+        <div class="form-row full-width">
+          <div class="form-group">
+            <label>Descripción General</label>
+            <textarea formControlName="description" rows="2" placeholder="Describa el propósito de este asiento..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lines Section -->
+      <div class="form-card lines-card">
+        <div class="lines-header">
+          <h3>Detalle de Movimientos</h3>
+        </div>
+
+        <div class="lines-grid-container">
+          <div class="lines-grid-header">
+            <div class="col-num">#</div>
+            <div class="col-account">Cuenta Contable</div>
+            <div class="col-desc">Descripción de Línea</div>
+            <div class="col-amount text-right">Débito</div>
+            <div class="col-amount text-right">Crédito</div>
+            <div class="col-action"></div>
+          </div>
+
+          <div formArrayName="lines" class="lines-grid-body">
+            <div *ngFor="let line of lines.controls; let i=index" [formGroupName]="i" class="line-row">
+              <div class="col-num">{{ i + 1 }}</div>
+              
+              <div class="col-account">
+                <input type="text" 
+                       formControlName="accountSearch" 
+                       class="account-input" 
+                       list="accounts-list" 
+                       (input)="onAccountInput($event, i)"
+                       placeholder="Buscar cuenta..."
+                       [class.is-invalid]="lines.at(i).get('accountId')?.invalid && lines.at(i).get('accountSearch')?.touched">
+                <input type="hidden" formControlName="accountId">
+              </div>
+
+              <div class="col-desc">
+                <input type="text" formControlName="description" placeholder="Opcional">
+              </div>
+
+              <div class="col-amount">
+                <input type="number" formControlName="debit" class="text-right" min="0" step="0.01">
+              </div>
+
+              <div class="col-amount">
+                <input type="number" formControlName="credit" class="text-right" min="0" step="0.01">
+              </div>
+
+              <div class="col-action">
+                <button type="button" class="btn-delete" (click)="removeLine(i)" title="Eliminar línea">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21 5.97998C17.67 5.64998 14.32 5.47998 10.98 5.47998C9 5.47998 7.02 5.57998 5.04 5.77998L3 5.97998" stroke="#f87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M8.5 4.97L8.72 3.66C8.88 2.71 9 2 10.69 2H13.31C15 2 15.13 2.75 15.28 3.67L15.5 4.97" stroke="#f87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M18.85 9.14001L18.2 19.21C18.09 20.78 18 22 15.21 22H8.79002C6.00002 22 5.91002 20.78 5.80002 19.21L5.15002 9.14001" stroke="#f87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lines-footer">
+          <button type="button" class="btn-add-line" (click)="addLine()">
+            + Añadir Línea
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Sticky Footer Totals -->
+    <div class="totals-bar">
+      <div class="totals-info">
+        <div class="total-group">
+          <span class="label">Total Débito</span>
+          <span class="value">{{ totalDebit | currency: journalForm.get('currency')?.value }}</span>
+        </div>
+        <div class="total-group">
+          <span class="label">Total Crédito</span>
+          <span class="value">{{ totalCredit | currency: journalForm.get('currency')?.value }}</span>
+        </div>
+        <div class="balance-indicator" [class.balanced]="isBalanced" [class.unbalanced]="!isBalanced">
+          <span class="label">Diferencia:</span>
+          <span class="value">{{ difference | currency: journalForm.get('currency')?.value }}</span>
+          <span class="status-text" *ngIf="isBalanced">Balanceado</span>
+          <span class="status-text" *ngIf="!isBalanced">Descuadrado</span>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button type="button" class="btn-secondary" (click)="saveDraft()">Guardar Borrador</button>
+        <button type="button" class="btn-primary" (click)="postEntry()" [disabled]="!journalForm.valid || !isBalanced">
+          Postear Asiento
+        </button>
+      </div>
+    </div>
+    </ng-container>
+  </div>
+</div>
+
+<datalist id="accounts-list">
+  <option *ngFor="let acc of accounts" [value]="acc.accountNumber + ' - ' + acc.name"></option>
+</datalist>
