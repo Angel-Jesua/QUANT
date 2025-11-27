@@ -1,0 +1,56 @@
+<div class="page-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="main-content">
+    <header class="page-header">
+      <h1 class="company-title">{{ companyTitle }}</h1>
+      <div class="header-divider"></div>
+      <p class="page-subtitle">{{ subtitle }}</p>
+    </header>
+
+    <section class="reports-container">
+      @for (card of reportCards; track card.id) {
+        <article 
+          class="report-card"
+          [class]="'report-card report-card--' + card.colorScheme"
+          [class.report-card--clickable]="card.colorScheme === 'cyan'"
+          (click)="card.colorScheme === 'cyan' ? navigateToReport(card.route) : null"
+          [attr.role]="card.colorScheme === 'cyan' ? 'button' : null"
+          [attr.tabindex]="card.colorScheme === 'cyan' ? '0' : null">
+          <div class="report-card__background"></div>
+          <div class="report-card__header" [class]="'report-card__header--' + card.colorScheme">
+            <h2 class="report-card__title">{{ card.title }}</h2>
+          </div>
+          <p class="report-card__description" [class]="'report-card__description--' + card.colorScheme">
+            {{ card.description }}
+          </p>
+          @if (card.colorScheme !== 'cyan') {
+            <button 
+              class="report-card__button"
+              [class]="'report-card__button--' + card.colorScheme"
+              (click)="navigateToReport(card.route)">
+              Ver detalles
+            </button>
+          }
+        </article>
+      }
+    </section>
+
+    <!-- Decorative Images -->
+    <img 
+      class="decoration decoration--top-right" 
+      src="/assets/images/report-decoration-3.png" 
+      alt="" 
+      aria-hidden="true">
+    <img 
+      class="decoration decoration--middle-right" 
+      src="/assets/images/report-decoration-1.png" 
+      alt="" 
+      aria-hidden="true">
+    <img 
+      class="decoration decoration--bottom-right" 
+      src="/assets/images/report-decoration-2.png" 
+      alt="" 
+      aria-hidden="true">
+  </main>
+</div>

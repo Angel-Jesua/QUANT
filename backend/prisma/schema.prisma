@@ -479,6 +479,8 @@ model PaymentAllocation {
   @@map("payment_allocation")
 }
 
+
+//Fijarse para que se va a ocupar estos modelos de Attachment y EntityAttachment
 model Attachment {
   id           Int      @id @default(autoincrement()) @map("id")
   fileName     String   @map("file_name") @db.VarChar(255)

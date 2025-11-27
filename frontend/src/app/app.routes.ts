@@ -45,5 +45,10 @@ export const routes: Routes = [
     path: 'asientos',
     loadChildren: () => import('./journal/journal.routes').then(m => m.JOURNAL_ROUTES),
     canActivate: [authGuard]
+  },
+  {
+    path: 'reportes',
+    loadComponent: () => import('./reportes/reportes.component').then(m => m.ReportesComponent),
+    canActivate: [authGuard]
   }
 ];
