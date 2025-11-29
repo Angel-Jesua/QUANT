@@ -45,6 +45,8 @@ exports.updateJournalEntry = updateJournalEntry;
 exports.postJournalEntry = postJournalEntry;
 exports.deleteJournalEntry = deleteJournalEntry;
 exports.reverseJournalEntry = reverseJournalEntry;
+exports.previewImport = previewImport;
+exports.importJournalEntries = importJournalEntries;
 const journalService = __importStar(require("./journal.service"));
 /**
  * Extract request context for audit logging
@@ -342,5 +344,63 @@ async function reverseJournalEntry(req, res) {
             return;
         }
         res.status(500).json({ error: 'Error interno al reversar el asiento contable' });
+    }
+}
+/**
+ * POST /api/journal/import/preview
+ * Preview Excel file for import
+ */
+async function previewImport(req, res) {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: 'Usuario no autenticado' });
+            return;
+        }
+        if (!req.file) {
+            res.status(400).json({ error: 'Archivo Excel requerido' });
+            return;
+        }
+        const { previewExcelImport } = await Promise.resolve().then(() => __importStar(require('./journal-import.service')));
+        const result = await previewExcelImport(req.file.buffer);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error previewing import:', error.message, error.stack);
+        res.status(500).json({ error: `Error al procesar el archivo Excel: ${error.message}` });
+    }
+}
+/**
+ * POST /api/journal/import
+ * Import journal entries from Excel
+ */
+async function importJournalEntries(req, res) {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: 'Usuario no autenticado' });
+            return;
+        }
+        if (!req.file) {
+            res.status(400).json({ error: 'Archivo Excel requerido' });
+            return;
+        }
+        const { currencyId, selectedSheets, defaultExchangeRate, autoPost } = req.body;
+        if (!currencyId) {
+            res.status(400).json({ error: 'La moneda es requerida' });
+            return;
+        }
+        const { importJournalEntries: doImport } = await Promise.resolve().then(() => __importStar(require('./journal-import.service')));
+        const result = await doImport(req.file.buffer, {
+            currencyId: parseInt(currencyId, 10),
+            selectedSheets: selectedSheets ? JSON.parse(selectedSheets) : undefined,
+            defaultExchangeRate: defaultExchangeRate ? parseFloat(defaultExchangeRate) : undefined,
+            autoPost: autoPost === 'true',
+        }, userId);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error importing journal entries:', error);
+        res.status(500).json({ error: 'Error al importar asientos contables' });
     }
 }

@@ -36,15 +36,32 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.journalRoutes = void 0;
 const express_1 = require("express");
+const multer_1 = __importDefault(require("multer"));
 const journalController = __importStar(require("./journal.controller"));
 const auth_middleware_1 = require("../../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 exports.journalRoutes = router;
+const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
 // All routes require authentication
 router.use(auth_middleware_1.authenticateJWT);
+/**
+ * POST /api/journal/import/preview
+ * Preview Excel file for import
+ * Body: multipart/form-data with 'file' field
+ */
+router.post('/import/preview', upload.single('file'), journalController.previewImport);
+/**
+ * POST /api/journal/import
+ * Import journal entries from Excel
+ * Body: multipart/form-data with 'file', 'currencyId', 'selectedSheets?', 'defaultExchangeRate?', 'autoPost?'
+ */
+router.post('/import', upload.single('file'), journalController.importJournalEntries);
 /**
  * POST /api/journal
  * Create a new journal entry

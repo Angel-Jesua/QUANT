@@ -82,4 +82,12 @@ export class JournalService {
   deleteJournalEntry(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
+
+  async previewImport(formData: FormData): Promise<any> {
+    return this.http.post(`${this.apiUrl}/import/preview`, formData).toPromise();
+  }
+
+  async importJournalEntries(formData: FormData): Promise<any> {
+    return this.http.post(`${this.apiUrl}/import`, formData).toPromise();
+  }
 }

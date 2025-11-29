@@ -1,0 +1,213 @@
+<div class="import-container">
+  <div class="import-header">
+    <h2>Importar Asientos Contables desde Excel</h2>
+    <button class="btn-secondary" (click)="goToList()">← Volver a Lista</button>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-error">{{ error }}</div>
+  }
+
+  <!-- Step 1: Upload -->
+  @if (step === 'upload') {
+    <div class="upload-section">
+      <div class="upload-box" [class.has-file]="selectedFile">
+        <input type="file" id="fileInput" accept=".xlsx,.xls" (change)="onFileSelected($event)" hidden>
+        <label for="fileInput" class="upload-label">
+          @if (selectedFile) {
+            <span class="file-icon">📄</span>
+            <span class="file-name">{{ selectedFile.name }}</span>
+            <span class="file-size">{{ (selectedFile.size / 1024).toFixed(1) }} KB</span>
+          } @else {
+            <span class="upload-icon">📁</span>
+            <span>Arrastra un archivo Excel o haz clic para seleccionar</span>
+            <span class="hint">Formatos soportados: .xlsx, .xls</span>
+          }
+        </label>
+      </div>
+
+      <div class="import-options">
+        <div class="option-group">
+          <label>Moneda:</label>
+          <select [(ngModel)]="currencyId">
+            <option [value]="1">NIO - Córdoba</option>
+            <option [value]="2">USD - Dólar</option>
+          </select>
+        </div>
+        <div class="option-group">
+          <label>Tipo de Cambio por defecto:</label>
+          <input type="number" [(ngModel)]="defaultExchangeRate" step="0.0001">
+        </div>
+      </div>
+
+      <button class="btn-primary" [disabled]="!selectedFile || importing" (click)="uploadAndPreview()">
+        @if (importing) {
+          <span class="spinner"></span> Procesando...
+        } @else {
+          Analizar Archivo
+        }
+      </button>
+    </div>
+  }
+
+  <!-- Step 2: Preview -->
+  @if (step === 'preview' && preview) {
+    <div class="preview-section">
+      <div class="summary-cards">
+        <div class="summary-card">
+          <span class="value">{{ preview.summary.totalSheets }}</span>
+          <span class="label">Hojas</span>
+        </div>
+        <div class="summary-card">
+          <span class="value">{{ preview.summary.totalEntries }}</span>
+          <span class="label">Asientos</span>
+        </div>
+        <div class="summary-card success">
+          <span class="value">{{ preview.summary.validEntries }}</span>
+          <span class="label">Válidos</span>
+        </div>
+        <div class="summary-card error">
+          <span class="value">{{ preview.summary.invalidEntries }}</span>
+          <span class="label">Con Errores</span>
+        </div>
+      </div>
+
+      <div class="sheets-section">
+        <div class="section-header">
+          <h3>Hojas a Importar</h3>
+          <div class="sheet-actions">
+            <button class="btn-link" (click)="selectAllSheets()">Seleccionar todas</button>
+            <button class="btn-link" (click)="deselectAllSheets()">Deseleccionar todas</button>
+          </div>
+        </div>
+        <div class="sheets-grid">
+          @for (sheet of preview.sheets; track sheet.name) {
+            <div class="sheet-item" [class.selected]="sheet.selected" (click)="toggleSheet(sheet)">
+              <input type="checkbox" [checked]="sheet.selected" (click)="$event.stopPropagation()">
+              <div class="sheet-info">
+                <span class="sheet-name">{{ sheet.name }}</span>
+                <span class="sheet-meta">{{ sheet.type === 'structured' ? 'Tabular' : 'Comprobante' }} · {{ sheet.rowCount }} filas</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="entries-section">
+        <h3>Vista Previa de Asientos ({{ getFilteredEntries().length }})</h3>
+        <div class="entries-list">
+          @for (entry of getFilteredEntries(); track entry.voucherNumber) {
+            <div class="entry-item" [class.invalid]="!entry.isValid">
+              <div class="entry-header" (click)="toggleEntryDetails(entry.voucherNumber)">
+                <div class="entry-main">
+                  <span class="voucher">{{ entry.voucherNumber }}</span>
+                  <span class="description">{{ entry.description }}</span>
+                </div>
+                <div class="entry-meta">
+                  <span class="date">{{ entry.entryDate | date:'dd/MM/yyyy' }}</span>
+                  <span class="lines-count">{{ entry.lines.length }} líneas</span>
+                  @if (!entry.isValid) {
+                    <span class="badge error">Error</span>
+                  } @else {
+                    <span class="badge success">OK</span>
+                  }
+                </div>
+              </div>
+              
+              @if (expandedEntry === entry.voucherNumber) {
+                <div class="entry-details">
+                  @if (entry.errors.length > 0) {
+                    <div class="errors-list">
+                      @for (err of entry.errors; track err) {
+                        <div class="error-item">⚠️ {{ err }}</div>
+                      }
+                    </div>
+                  }
+                  <table class="lines-table">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Cuenta</th>
+                        <th class="number">Débito</th>
+                        <th class="number">Crédito</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (line of entry.lines; track $index) {
+                        <tr>
+                          <td>{{ line.accountCode }}</td>
+                          <td>{{ line.accountName }}</td>
+                          <td class="number">{{ line.debit > 0 ? (line.debit | number:'1.2-2') : '' }}</td>
+                          <td class="number">{{ line.credit > 0 ? (line.credit | number:'1.2-2') : '' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="import-options bottom">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="autoPost">
+          Publicar asientos automáticamente después de importar
+        </label>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn-secondary" (click)="reset()">Cancelar</button>
+        <button class="btn-primary" [disabled]="getValidEntriesCount() === 0" (click)="startImport()">
+          Importar {{ getValidEntriesCount() }} Asientos
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Step 3: Importing -->
+  @if (step === 'importing') {
+    <div class="importing-section">
+      <div class="spinner large"></div>
+      <p>Importando asientos contables...</p>
+    </div>
+  }
+
+  <!-- Step 4: Result -->
+  @if (step === 'result' && importResult) {
+    <div class="result-section">
+      <div class="result-icon" [class.success]="importResult.success">
+        {{ importResult.success ? '✓' : '⚠️' }}
+      </div>
+      <h3>{{ importResult.success ? 'Importación Completada' : 'Importación con Errores' }}</h3>
+      
+      <div class="result-stats">
+        <div class="stat success">
+          <span class="value">{{ importResult.imported }}</span>
+          <span class="label">Importados</span>
+        </div>
+        <div class="stat error">
+          <span class="value">{{ importResult.failed }}</span>
+          <span class="label">Fallidos</span>
+        </div>
+      </div>
+
+      @if (importResult.errors.length > 0) {
+        <div class="errors-section">
+          <h4>Errores:</h4>
+          @for (err of importResult.errors; track $index) {
+            <div class="error-item">
+              <strong>{{ err.entry }}:</strong> {{ err.error }}
+            </div>
+          }
+        </div>
+      }
+
+      <div class="action-buttons">
+        <button class="btn-secondary" (click)="reset()">Importar Otro Archivo</button>
+        <button class="btn-primary" (click)="goToList()">Ver Asientos</button>
+      </div>
+    </div>
+  }
+</div>

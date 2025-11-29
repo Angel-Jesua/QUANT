@@ -4,13 +4,29 @@
  */
 
 import { Router } from 'express';
+import multer from 'multer';
 import * as journalController from './journal.controller';
 import { authenticateJWT } from '../../middleware/auth.middleware';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // All routes require authentication
 router.use(authenticateJWT);
+
+/**
+ * POST /api/journal/import/preview
+ * Preview Excel file for import
+ * Body: multipart/form-data with 'file' field
+ */
+router.post('/import/preview', upload.single('file'), journalController.previewImport);
+
+/**
+ * POST /api/journal/import
+ * Import journal entries from Excel
+ * Body: multipart/form-data with 'file', 'currencyId', 'selectedSheets?', 'defaultExchangeRate?', 'autoPost?'
+ */
+router.post('/import', upload.single('file'), journalController.importJournalEntries);
 
 /**
  * POST /api/journal
