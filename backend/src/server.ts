@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { PrismaClient, AuditAction } = require('@prisma/client');
 const { userRoutes } = require('./modules/user/user.routes');
@@ -10,14 +11,46 @@ const { accountRoutes } = require('./modules/account/account.routes');
 const { journalRoutes } = require('./modules/journal/journal.routes');
 const { reportRoutes } = require('./modules/report/report.routes');
 const { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext } = require('./utils/error');
+const { EncryptionService, ConsoleCryptoAuditLogger } = require('./utils/encryption.service');
+const { KeyValidationError } = require('./utils/encryption.errors');
+const { createEncryptionMiddleware } = require('./middleware/encryption.middleware');
+const { ENCRYPTED_FIELDS } = require('./config/encryption.config');
+
+// Validate ENCRYPTION_KEY at startup
+let encryptionService: InstanceType<typeof EncryptionService> | null = null;
+try {
+  if (process.env.ENCRYPTION_KEY) {
+    encryptionService = new EncryptionService(
+      process.env.ENCRYPTION_KEY,
+      new ConsoleCryptoAuditLogger()
+    );
+    console.log('[STARTUP] Encryption service initialized successfully');
+  } else {
+    console.warn('[STARTUP] ENCRYPTION_KEY not set - encryption middleware disabled');
+  }
+} catch (error: unknown) {
+  if (error instanceof KeyValidationError) {
+    console.error(`[STARTUP] Invalid ENCRYPTION_KEY: ${(error as Error).message}`);
+    console.error('[STARTUP] Server cannot start with invalid encryption configuration');
+    process.exit(1);
+  }
+  throw error;
+}
 
 const app = express();
 const prisma = new PrismaClient();
+
+// Apply encryption middleware if encryption service is available
+if (encryptionService) {
+  prisma.$use(createEncryptionMiddleware(ENCRYPTED_FIELDS, encryptionService));
+  console.log('[STARTUP] Encryption middleware applied to PrismaClient');
+}
 
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: ['http://localhost:4200', 'https://quant-app-7hofs.ondigitalocean.app'],
   credentials: true

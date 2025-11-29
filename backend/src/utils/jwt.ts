@@ -114,3 +114,20 @@ export function generateAccessToken(user: BasicUserClaims): JwtAuthResponse {
     },
   };
 }
+
+export function verifyAccessToken(token: string): BasicUserClaims {
+  const rawSecret = process.env.JWT_SECRET;
+  if (!rawSecret) throw new JWTConfigError('Missing JWT secret');
+  
+  try {
+    const decoded = jwt.verify(token, rawSecret) as any;
+    return {
+      id: decoded.sub,
+      email: decoded.email,
+      username: decoded.username,
+      role: decoded.role
+    };
+  } catch (error) {
+    throw new Error('Invalid token');
+  }
+}

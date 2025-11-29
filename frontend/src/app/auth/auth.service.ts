@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, BehaviorSubject } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { Observable, throwError, BehaviorSubject, of } from 'rxjs';
+import { catchError, tap, map } from 'rxjs/operators';
 import { API_BASE_URL } from '../shared/constants/api.constants';
 import { UserProfileDto, UserProfileService } from '../shared/services/user-profile.service';
 
@@ -38,12 +38,29 @@ export interface ApiError {
 })
 export class AuthService {
   private readonly baseUrl = API_BASE_URL;
-  private readonly storageKey = 'quant_auth_token';
-  private readonly tokenSubject = new BehaviorSubject<string | null>(null);
+  private readonly isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
+  public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
 
   constructor(private http: HttpClient, private userProfileService: UserProfileService) {
-    const storedToken = localStorage.getItem(this.storageKey);
-    this.tokenSubject.next(storedToken);
+    this.checkAuth().subscribe();
+  }
+
+  checkAuth(): Observable<boolean> {
+    return this.http.get<any>(`${this.baseUrl}/auth/me`).pipe(
+      tap(response => {
+        if (response.success && response.user) {
+          this.isAuthenticatedSubject.next(true);
+          this.userProfileService.setProfileFromAuth(response.user);
+        } else {
+          this.isAuthenticatedSubject.next(false);
+        }
+      }),
+      map(() => true),
+      catchError(() => {
+        this.isAuthenticatedSubject.next(false);
+        return of(false);
+      })
+    );
   }
 
   login(credentials: LoginCredentials): Observable<LoginResponse> {
@@ -58,9 +75,8 @@ export class AuthService {
   }
 
   private handleAuthentication(response: LoginResponse): void {
-    if (response.token) {
-      localStorage.setItem(this.storageKey, response.token);
-      this.tokenSubject.next(response.token);
+    if (response.success) {
+      this.isAuthenticatedSubject.next(true);
       this.userProfileService.setProfileFromAuth(response.user ?? null);
     }
   }
@@ -89,26 +105,17 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return this.isAuthenticatedSubject.value;
   }
 
   getToken(): string | null {
-    // Primero intenta obtener el token del BehaviorSubject
-    const token = this.tokenSubject.value;
-    // Si no hay token en el BehaviorSubject pero sí en localStorage, actualiza el BehaviorSubject
-    if (!token) {
-      const storedToken = localStorage.getItem(this.storageKey);
-      if (storedToken) {
-        this.tokenSubject.next(storedToken);
-        return storedToken;
-      }
-    }
-    return token;
+    return null;
   }
 
   logout(): void {
-    localStorage.removeItem(this.storageKey);
-    this.tokenSubject.next(null);
-    this.userProfileService.clearProfile();
+    this.http.post(`${this.baseUrl}/auth/logout`, {}).subscribe(() => {
+      this.isAuthenticatedSubject.next(false);
+      this.userProfileService.clearProfile();
+    });
   }
 }

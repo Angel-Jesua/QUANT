@@ -10,7 +10,7 @@ import {
   validateCreateUserWithUniqueness,
   validateUpdateUserWithUniqueness
 } from './user.validation';
-import { generateAccessToken, JWTConfigError } from '../../utils/jwt';
+import { generateAccessToken, verifyAccessToken, JWTConfigError } from '../../utils/jwt';
 import { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext, logAuditError } from '../../utils/error';
 import { AuditAction } from '@prisma/client';
 
@@ -378,8 +378,18 @@ export class UserController {
           message: 'Inicio de sesión exitoso',
         };
 
+        // Set HttpOnly cookie
+        res.cookie('token', auth.token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          maxAge: 24 * 60 * 60 * 1000 // 1 day
+        });
+
         // Do not log the token
-        res.status(200).json(responsePayload);
+        // Remove token from response body
+        const { token, ...safeResponse } = responsePayload;
+        res.status(200).json(safeResponse);
       } catch (err) {
         if (err instanceof JWTConfigError) {
           await respondWithSafeErrorAndAudit(res, 'INTERNAL_ERROR', {
@@ -419,6 +429,58 @@ export class UserController {
         userAgent: req.get('User-Agent'),
       }, { logTag: 'login.exception', error });
     }
+  }
+
+  /**
+   * Get current user (Me)
+   */
+  async me(req: Request, res: Response): Promise<void> {
+    try {
+      const token = req.cookies.token;
+      if (!token) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+
+      try {
+        const claims = verifyAccessToken(token);
+        const user = await this.userService.getUserDetails(Number(claims.id));
+        if (!user) {
+          res.status(401).json({ error: 'User not found' });
+          return;
+        }
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            fullName: user.fullName,
+            role: String(user.role),
+            avatarType: String(user.avatarType),
+            profileImageUrl: user.profileImageUrl ?? null,
+            profileImageStatus: user.profileImageStatus,
+          }
+        });
+      } catch (e) {
+        res.status(401).json({ error: 'Invalid token' });
+      }
+    } catch (error) {
+      logErrorContext('user.me.error', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * Logout user
+   */
+  async logout(req: Request, res: Response): Promise<void> {
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    });
+    res.json({ success: true, message: 'Logged out successfully' });
   }
 
   /**

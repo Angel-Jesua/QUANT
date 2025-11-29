@@ -84,7 +84,7 @@ enum LineType {
 model UserAccount {
   id                  Int        @id @default(autoincrement()) @map("id")
   username            String     @unique @map("username")
-  email               String     @unique @map("email")
+  email               String     @unique @map("email") @db.Text
   cedula              String?    @unique @map("cedula")
   passwordHash        String     @map("password_hash")
   fullName            String     @map("full_name")
@@ -249,8 +249,8 @@ model Client {
   clientCode  String   @unique @map("client_code") @db.VarChar(20)
   taxId       String?  @unique @map("tax_id") @db.VarChar(20)
   name        String   @map("name") @db.VarChar(255)
-  email       String?  @map("email") @db.VarChar(255)
-  phone       String?  @map("phone") @db.VarChar(50)
+  email       String?  @map("email") @db.Text
+  phone       String?  @map("phone") @db.Text
   address     String?  @map("address") @db.Text
   city        String?  @map("city") @db.VarChar(100)
   country     String   @default("Nicaragua") @map("country") @db.VarChar(100)
