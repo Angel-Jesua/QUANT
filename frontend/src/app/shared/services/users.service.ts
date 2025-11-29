@@ -8,6 +8,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  cedula?: string;
   fullName: string;
   role: string;
   isActive: boolean;
@@ -43,6 +44,7 @@ export interface UserDetails extends User {
 export interface CreateUserData {
   username: string;
   email: string;
+  cedula?: string;
   password: string;
   fullName: string;
   role: string;
@@ -51,6 +53,7 @@ export interface CreateUserData {
 export interface UpdateUserData {
   username?: string;
   email?: string;
+  cedula?: string;
   fullName?: string;
   role?: string;
   isActive?: boolean;

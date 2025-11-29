@@ -50,5 +50,20 @@ export const routes: Routes = [
     path: 'reportes',
     loadComponent: () => import('./reportes/reportes.component').then(m => m.ReportesComponent),
     canActivate: [authGuard]
+  },
+  {
+    path: 'reportes/balanza-comprobacion',
+    loadComponent: () => import('./reportes/trial-balance/trial-balance.component').then(m => m.TrialBalanceComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'reportes/balance-general',
+    loadComponent: () => import('./reportes/balance-general/balance-general.component').then(m => m.BalanceGeneralComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'reportes/estado-resultado',
+    loadComponent: () => import('./reportes/estado-resultado/estado-resultado.component').then(m => m.EstadoResultadoComponent),
+    canActivate: [authGuard]
   }
 ];

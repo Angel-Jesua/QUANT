@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UsersService, UserDetails } from '../../shared/services/users.service';
 import { SidebarComponent } from '../../dashboard/components/sidebar/sidebar.component';
+import { API_BASE_URL } from '../../shared/constants/api.constants';
 
 @Component({
   selector: 'app-user-detail',
@@ -19,6 +20,9 @@ export class UserDetailComponent implements OnInit {
   user = signal<UserDetails | null>(null);
   isLoading = signal<boolean>(true);
   error = signal<string | null>(null);
+  resolvedImageUrl = signal<string | null>(null);
+
+  private readonly defaultImagePath = 'assets/images/default-avatar.png';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -34,6 +38,7 @@ export class UserDetailComponent implements OnInit {
     this.usersService.getUserDetails(id).subscribe({
       next: (data) => {
         this.user.set(data);
+        this.resolvedImageUrl.set(this.resolveImageUrl(data.profileImageUrl));
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -42,6 +47,29 @@ export class UserDetailComponent implements OnInit {
         this.isLoading.set(false);
       }
     });
+  }
+
+  private resolveImageUrl(path?: string | null): string {
+    if (!path) {
+      return this.defaultImagePath;
+    }
+
+    // If it's already an absolute URL, return it as-is
+    if (/^https?:\/\//i.test(path)) {
+      return path;
+    }
+
+    // For uploaded images, use the backend server URL
+    const normalized = path.replace(/^\/+/g, '');
+    const backendUrl = API_BASE_URL.replace('/api', ''); // Remove /api suffix
+    return `${backendUrl}/${normalized}`;
+  }
+
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (img.src !== this.defaultImagePath) {
+      img.src = this.defaultImagePath;
+    }
   }
 
   goBack() {

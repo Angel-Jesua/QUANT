@@ -8,6 +8,7 @@ const { currencyRoutes } = require('./modules/currency/currency.routes');
 const { clientRoutes } = require('./modules/client/client.routes');
 const { accountRoutes } = require('./modules/account/account.routes');
 const { journalRoutes } = require('./modules/journal/journal.routes');
+const { reportRoutes } = require('./modules/report/report.routes');
 const { sendSafeError, respondWithSafeErrorAndAudit, logErrorContext } = require('./utils/error');
 
 const app = express();
@@ -38,6 +39,7 @@ apiRouter.use('/currencies', currencyRoutes);
 apiRouter.use('/clients', clientRoutes);
 apiRouter.use('/accounts', accountRoutes);
 apiRouter.use('/journal', journalRoutes);
+apiRouter.use('/reports', reportRoutes);
 
 // Mount API routes on both /api and root / to handle DigitalOcean stripping prefix
 app.use('/api', apiRouter);

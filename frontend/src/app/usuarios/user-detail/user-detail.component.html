@@ -20,7 +20,7 @@
       <div class="user-profile-card" *ngIf="user() as u">
         <div class="profile-header">
           <div class="profile-image">
-            <img [src]="u.profileImageUrl || 'assets/images/default-avatar.png'" [alt]="u.fullName" onerror="this.src='assets/images/default-avatar.png'">
+            <img [src]="resolvedImageUrl()" [alt]="u.fullName" (error)="onImageError($event)">
           </div>
           <div class="profile-info">
             <h2>{{ u.fullName }}</h2>

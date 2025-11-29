@@ -9,6 +9,7 @@ interface ReportCard {
   description: string;
   colorScheme: 'cyan' | 'blue' | 'navy';
   route: string;
+  isActive: boolean;
 }
 
 @Component({
@@ -29,21 +30,24 @@ export class ReportesComponent {
       title: 'Balanza de Comprobación',
       description: 'Verificación de saldos deudores y acreedores',
       colorScheme: 'cyan',
-      route: '/reportes/balanza-comprobacion'
+      route: '/reportes/balanza-comprobacion',
+      isActive: true
     },
     {
       id: 'balance-sheet',
       title: 'Balance General',
       description: 'Estado de situación financiera de la empresa',
       colorScheme: 'blue',
-      route: '/reportes/balance-general'
+      route: '/reportes/balance-general',
+      isActive: true
     },
     {
       id: 'income-statement',
       title: 'Estado de Resultado',
       description: 'Informe de ingreso, gastos y beneficios',
       colorScheme: 'navy',
-      route: '/reportes/estado-resultado'
+      route: '/reportes/estado-resultado',
+      isActive: true
     }
   ];
 

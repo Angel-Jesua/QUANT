@@ -178,7 +178,7 @@ export class UsuariosComponent implements OnInit {
 
   constructor() {
     this.registrationForm = this.fb.group({
-      cedula: ['', [Validators.required, Validators.pattern(/^\d{3}-\d{6}-\d{4}[A-Z]$/)]],
+      cedula: ['', [Validators.required, Validators.pattern(/^\d{3}-\d{6}-\d{4}[A-Z]$/i)]],
       username: ['', [Validators.required, Validators.minLength(3)]],
       rol: ['', [Validators.required]],
       password: ['', [Validators.required, Validators.minLength(6)]],
@@ -270,15 +270,12 @@ export class UsuariosComponent implements OnInit {
     // Remove validators for fields not needed in edit or not available
     this.registrationForm.get('password')?.clearValidators();
     this.registrationForm.get('password')?.updateValueAndValidity();
-    
-    this.registrationForm.get('cedula')?.clearValidators();
-    this.registrationForm.get('cedula')?.updateValueAndValidity();
 
     this.registrationForm.patchValue({
       username: user.username,
       email: user.email,
       rol: user.role,
-      cedula: '000-000000-0000A', // Dummy value
+      cedula: user.cedula || '',
       password: ''
     });
     
@@ -303,7 +300,7 @@ export class UsuariosComponent implements OnInit {
     this.registrationForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
     this.registrationForm.get('password')?.updateValueAndValidity();
     
-    this.registrationForm.get('cedula')?.setValidators([Validators.required, Validators.pattern(/^\d{3}-\d{6}-\d{4}[A-Z]$/)]);
+    this.registrationForm.get('cedula')?.setValidators([Validators.required, Validators.pattern(/^\d{3}-\d{6}-\d{4}[A-Z]$/i)]);
     this.registrationForm.get('cedula')?.updateValueAndValidity();
   }
 
@@ -336,6 +333,7 @@ export class UsuariosComponent implements OnInit {
         const updateData: UpdateUserData = {
           username: formData.username.trim(),
           email: formData.email.trim().toLowerCase(),
+          cedula: formData.cedula?.trim() || undefined,
           fullName: formData.username.trim(),
           role: formData.rol.toLowerCase()
         };
@@ -367,6 +365,7 @@ export class UsuariosComponent implements OnInit {
         const userData: CreateUserData = {
           username: formData.username.trim(),
           email: formData.email.trim().toLowerCase(),
+          cedula: formData.cedula.trim(),
           password: formData.password,
           fullName: formData.username.trim(),
           role: formData.rol.toLowerCase()

@@ -1,0 +1,340 @@
+<div class="page-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="main-content">
+    <!-- Header -->
+    <header class="page-header">
+      <h1 class="company-title">{{ companyTitle }}</h1>
+      <div class="header-divider"></div>
+    </header>
+
+    <!-- Report Header Section -->
+    <section class="report-header">
+      <button class="btn-back" (click)="goBack()" aria-label="Volver a reportes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 19L8 12L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Volver</span>
+      </button>
+      <h2 class="report-title">{{ reportTitle }}</h2>
+      <div class="header-actions">
+        @if (state() === 'success') {
+          <button class="btn-export" (click)="exportToExcel()" aria-label="Exportar a Excel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 18V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 15L12 18L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Excel</span>
+          </button>
+          <button class="btn-print" (click)="printReport()" aria-label="Imprimir reporte">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9V2H18V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 18H4C3.46957 18 2.96086 17.7893 2.58579 17.4142C2.21071 17.0391 2 16.5304 2 16V11C2 10.4696 2.21071 9.96086 2.58579 9.58579C2.96086 9.21071 3.46957 9 4 9H20C20.5304 9 21.0391 9.21071 21.4142 9.58579C21.7893 9.96086 22 10.4696 22 11V16C22 16.5304 21.7893 17.0391 21.4142 17.4142C21.0391 17.7893 20.5304 18 20 18H18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M18 14H6V22H18V14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Imprimir</span>
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- Filters Card -->
+    <section class="filters-card" aria-labelledby="filters-heading">
+      <h3 id="filters-heading" class="sr-only">Filtros del reporte</h3>
+      
+      <div class="filters-grid">
+        <!-- Date Range -->
+        <div class="filter-group">
+          <label for="startDate" class="filter-label">Fecha Inicio</label>
+          <input 
+            type="date" 
+            id="startDate"
+            class="filter-input date-input"
+            [(ngModel)]="filters.startDate"
+            [min]="minDate()"
+            [max]="filters.endDate || maxDate()"
+            required
+            aria-required="true">
+        </div>
+
+        <div class="filter-group">
+          <label for="endDate" class="filter-label">Fecha Fin</label>
+          <input 
+            type="date" 
+            id="endDate"
+            class="filter-input date-input"
+            [(ngModel)]="filters.endDate"
+            [min]="filters.startDate || minDate()"
+            [max]="maxDate()"
+            required
+            aria-required="true">
+        </div>
+
+        <!-- Account Level -->
+        <div class="filter-group">
+          <label for="accountLevel" class="filter-label">Nivel de Cuenta</label>
+          <select 
+            id="accountLevel"
+            class="filter-input filter-select"
+            [(ngModel)]="filters.accountLevel">
+            <option [ngValue]="undefined">Todos los niveles</option>
+            @for (level of availableLevels(); track level) {
+              <option [ngValue]="level">Nivel {{ level }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Options -->
+        <div class="filter-group filter-options">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="filters.onlyWithMovements"
+              class="checkbox-input">
+            <span class="checkbox-text">Solo cuentas con movimientos</span>
+          </label>
+          
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="filters.includeInactive"
+              class="checkbox-input">
+            <span class="checkbox-text">Incluir cuentas inactivas</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="filters-actions">
+        <button 
+          class="btn-secondary" 
+          (click)="resetFilters()"
+          [disabled]="state() === 'loading'">
+          Limpiar
+        </button>
+        <button 
+          class="btn-primary" 
+          (click)="generateReport()"
+          [disabled]="state() === 'loading' || !filters.startDate || !filters.endDate">
+          @if (state() === 'loading') {
+            <span class="spinner-small"></span>
+            <span>Generando...</span>
+          } @else {
+            <span>Generar Reporte</span>
+          }
+        </button>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section" aria-live="polite">
+      
+      <!-- Idle State -->
+      @if (state() === 'idle') {
+        <div class="state-card idle-state">
+          <div class="state-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M13 3H11C9.89543 3 9 3.89543 9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5C15 3.89543 14.1046 3 13 3Z" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 12H15" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 16H15" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Seleccione el período a consultar</h3>
+          <p class="state-description">Configure los filtros y presione "Generar Reporte" para visualizar la balanza de comprobación.</p>
+        </div>
+      }
+
+      <!-- Loading State -->
+      @if (state() === 'loading') {
+        <div class="state-card loading-state">
+          <div class="spinner-large"></div>
+          <h3 class="state-title">Generando reporte...</h3>
+          <p class="state-description">Por favor espere mientras se calculan los saldos.</p>
+        </div>
+      }
+
+      <!-- Error State -->
+      @if (state() === 'error') {
+        <div class="state-card error-state" role="alert">
+          <div class="state-icon error-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 9L9 15" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 9L15 15" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Error al generar el reporte</h3>
+          <p class="state-description">{{ errorMessage() }}</p>
+          <button class="btn-retry" (click)="generateReport()">Reintentar</button>
+        </div>
+      }
+
+      <!-- Empty State -->
+      @if (state() === 'empty') {
+        <div class="state-card empty-state">
+          <div class="state-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 6L9 17L4 12" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Sin resultados</h3>
+          <p class="state-description">No se encontraron movimientos contables para el período seleccionado.</p>
+          <p class="state-hint">Intente ampliar el rango de fechas o modificar los filtros.</p>
+        </div>
+      }
+
+      <!-- Success State - Report Table -->
+      @if (state() === 'success') {
+        <div class="report-card print-area">
+          <!-- Report Info Header (for print) -->
+          <div class="report-info print-only">
+            <h2>{{ companyTitle }}</h2>
+            <h3>{{ reportTitle }}</h3>
+            <p>Período: {{ formattedPeriod() }}</p>
+            <p>Generado: {{ generatedAt() | date:'dd/MM/yyyy HH:mm' }}</p>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="kpi-cards-container">
+            <div class="kpi-card">
+              <span class="kpi-label">Total Debe</span>
+              <span class="kpi-value">C$ {{ summary()?.totalDebits | number:'1.2-2' }}</span>
+              <div class="kpi-chart debit">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0,25 Q10,20 20,22 T40,18 T60,20 T80,15 T100,18" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="kpi-card">
+              <span class="kpi-label">Total Haber</span>
+              <span class="kpi-value credit">C$ {{ summary()?.totalCredits | number:'1.2-2' }}</span>
+              <div class="kpi-chart credit">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0,20 Q15,25 25,18 T50,22 T75,15 T100,20" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="kpi-card" [class.unbalanced]="!isBalanced()">
+              <span class="kpi-label">Estado</span>
+              <span class="kpi-value status" [class.balanced]="isBalanced()" [class.unbalanced]="!isBalanced()">
+                @if (isBalanced()) {
+                  Cuadrado
+                } @else {
+                  Descuadrado
+                }
+              </span>
+              <div class="kpi-chart status" [class.balanced]="isBalanced()" [class.unbalanced]="!isBalanced()">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  @if (isBalanced()) {
+                    <path d="M0,22 Q20,18 30,20 T50,15 T70,18 T90,12 T100,8" fill="none" stroke="currentColor" stroke-width="2"/>
+                  } @else {
+                    <path d="M0,15 Q15,20 30,10 T50,25 T70,8 T85,22 T100,12" fill="none" stroke="currentColor" stroke-width="2"/>
+                  }
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Table -->
+          <div class="table-container">
+            <table class="trial-balance-table" role="grid" aria-label="Balanza de Comprobación">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-code">Código</th>
+                  <th scope="col" class="col-name">Cuenta</th>
+                  <th scope="col" class="col-type">Tipo</th>
+                  <th scope="col" class="col-level">Nivel</th>
+                  <th scope="col" class="col-debit text-right">Debe</th>
+                  <th scope="col" class="col-credit text-right">Haber</th>
+                  <th scope="col" class="col-balance text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of displayEntries(); track trackByAccountId($index, entry)) {
+                  <tr 
+                    class="table-row"
+                    [class.level-1]="entry.accountLevel === 1"
+                    [class.level-2]="entry.accountLevel === 2"
+                    [class.is-header]="!entry.isDetail">
+                    <td class="col-code" [attr.data-label]="'Código'">
+                      <span class="account-code">{{ entry.accountNumber }}</span>
+                    </td>
+                    <td class="col-name" [attr.data-label]="'Cuenta'">
+                      <span 
+                        class="account-name" 
+                        [style.padding-left.px]="(entry.accountLevel - 1) * 16"
+                        [class.font-bold]="!entry.isDetail">
+                        {{ entry.accountName }}
+                      </span>
+                    </td>
+                    <td class="col-type" [attr.data-label]="'Tipo'">
+                      <span class="type-badge" [ngClass]="getAccountTypeClass(entry.accountType)">
+                        {{ entry.accountType }}
+                      </span>
+                    </td>
+                    <td class="col-level text-center" [attr.data-label]="'Nivel'">
+                      {{ entry.accountLevel }}
+                    </td>
+                    <td class="col-debit text-right" [attr.data-label]="'Debe'">
+                      @if (entry.debitAmount > 0) {
+                        <span class="amount debit">{{ entry.debitAmount | number:'1.2-2' }}</span>
+                      } @else {
+                        <span class="amount zero">-</span>
+                      }
+                    </td>
+                    <td class="col-credit text-right" [attr.data-label]="'Haber'">
+                      @if (entry.creditAmount > 0) {
+                        <span class="amount credit">{{ entry.creditAmount | number:'1.2-2' }}</span>
+                      } @else {
+                        <span class="amount zero">-</span>
+                      }
+                    </td>
+                    <td class="col-balance text-right" [attr.data-label]="'Saldo'">
+                      <span class="amount" [ngClass]="getBalanceClass(entry)">
+                        {{ entry.balance | number:'1.2-2' }}
+                        @if (entry.balance !== 0) {
+                          <small class="balance-indicator">{{ entry.balanceType === 'debit' ? 'D' : 'C' }}</small>
+                        }
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="totals-row">
+                  <td colspan="4" class="totals-label">TOTALES</td>
+                  <td class="col-debit text-right">
+                    <span class="total-amount debit">{{ summary()?.totalDebits | number:'1.2-2' }}</span>
+                  </td>
+                  <td class="col-credit text-right">
+                    <span class="total-amount credit">{{ summary()?.totalCredits | number:'1.2-2' }}</span>
+                  </td>
+                  <td class="col-balance text-right">
+                    <span class="total-amount" [class.balanced]="isBalanced()" [class.unbalanced]="!isBalanced()">
+                      {{ summary()?.difference | number:'1.2-2' }}
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Report Footer -->
+          <div class="report-footer">
+            <span class="footer-info">
+              {{ summary()?.accountCount }} cuentas | Período: {{ formattedPeriod() }}
+            </span>
+            <span class="footer-timestamp">
+              Generado: {{ generatedAt() | date:'dd/MM/yyyy HH:mm:ss' }}
+            </span>
+          </div>
+        </div>
+      }
+    </section>
+  </main>
+</div>

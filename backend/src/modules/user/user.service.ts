@@ -11,6 +11,7 @@ const USER_RESPONSE_SELECT = {
   id: true,
   username: true,
   email: true,
+  cedula: true,
   fullName: true,
   role: true,
   isActive: true,
@@ -63,6 +64,7 @@ function mapUserRecord(user: SelectedUser | null): IUserResponse | null {
     id: user.id,
     username: user.username,
     email: user.email,
+    cedula: user.cedula ?? undefined,
     fullName: user.fullName,
     role: user.role,
     isActive: user.isActive,
@@ -217,6 +219,7 @@ export class UserService {
         data: {
           username: userData.username,
           email: userData.email,
+          cedula: userData.cedula,
           passwordHash: passwordHash,
           fullName: userData.fullName,
           role: userData.role || UserRole.accountant, // Default role

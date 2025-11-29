@@ -626,24 +626,45 @@
   transform: translateX(23px);
 }
 
-.action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-action {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease;
-}
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748B;
 
-.action-btn:hover {
-  transform: scale(1.1);
-}
+  &:hover {
+    background: #F1F5F9;
+    color: #0062FF;
+  }
 
-.action-btn svg {
-  width: 36px;
-  height: 35px;
+  &.btn-view:hover {
+    color: #0062FF;
+    background-color: rgba(0, 98, 255, 0.1);
+  }
+
+  &.btn-edit:hover {
+    color: #F59E0B;
+    background-color: rgba(245, 158, 11, 0.1);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .loading-state {

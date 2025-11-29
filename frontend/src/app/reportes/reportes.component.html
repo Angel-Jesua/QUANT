@@ -13,10 +13,10 @@
         <article 
           class="report-card"
           [class]="'report-card report-card--' + card.colorScheme"
-          [class.report-card--clickable]="card.colorScheme === 'cyan'"
-          (click)="card.colorScheme === 'cyan' ? navigateToReport(card.route) : null"
-          [attr.role]="card.colorScheme === 'cyan' ? 'button' : null"
-          [attr.tabindex]="card.colorScheme === 'cyan' ? '0' : null">
+          [class.report-card--clickable]="card.isActive"
+          (click)="card.isActive ? navigateToReport(card.route) : null"
+          [attr.role]="card.isActive ? 'button' : null"
+          [attr.tabindex]="card.isActive ? '0' : null">
           <div class="report-card__background"></div>
           <div class="report-card__header" [class]="'report-card__header--' + card.colorScheme">
             <h2 class="report-card__title">{{ card.title }}</h2>
@@ -24,12 +24,12 @@
           <p class="report-card__description" [class]="'report-card__description--' + card.colorScheme">
             {{ card.description }}
           </p>
-          @if (card.colorScheme !== 'cyan') {
+          @if (!card.isActive) {
             <button 
               class="report-card__button"
               [class]="'report-card__button--' + card.colorScheme"
-              (click)="navigateToReport(card.route)">
-              Ver detalles
+              disabled>
+              Próximamente
             </button>
           }
         </article>

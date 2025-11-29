@@ -1,0 +1,612 @@
+<div class="page-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="main-content">
+    <!-- Header -->
+    <header class="page-header">
+      <h1 class="company-title">{{ companyTitle }}</h1>
+      <div class="header-divider"></div>
+    </header>
+
+    <!-- Report Header Section -->
+    <section class="report-header">
+      <button class="btn-back" (click)="goBack()" aria-label="Volver a reportes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 19L8 12L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Volver</span>
+      </button>
+      <div class="report-title-container">
+        <h2 class="report-title">{{ reportTitle }}</h2>
+        <span class="report-subtitle">{{ reportSubtitle }}</span>
+      </div>
+      <div class="header-actions">
+        @if (state() === 'success') {
+          <button class="btn-expand-collapse" (click)="expandAll()" title="Expandir todo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 14H10V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20 10H14V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 10L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 21L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="btn-expand-collapse" (click)="collapseAll()" title="Contraer todo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 14H10V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 7 17)"/>
+              <path d="M20 10H14V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 17 7)"/>
+              <path d="M15 9L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 21L9 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="btn-export" (click)="exportToExcel()" aria-label="Exportar a Excel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 18V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 15L12 18L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Excel</span>
+          </button>
+          <button class="btn-print" (click)="printReport()" aria-label="Imprimir/PDF">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9V2H18V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 18H4C3.46957 18 2.96086 17.7893 2.58579 17.4142C2.21071 17.0391 2 16.5304 2 16V11C2 10.4696 2.21071 9.96086 2.58579 9.58579C2.96086 9.21071 3.46957 9 4 9H20C20.5304 9 21.0391 9.21071 21.4142 9.58579C21.7893 9.96086 22 10.4696 22 11V16C22 16.5304 21.7893 17.0391 21.4142 17.4142C21.0391 17.7893 20.5304 18 20 18H18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M18 14H6V22H18V14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>PDF</span>
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- Filters Card -->
+    <section class="filters-card" aria-labelledby="filters-heading">
+      <h3 id="filters-heading" class="sr-only">Filtros del reporte</h3>
+      
+      <div class="filters-grid">
+        <!-- As Of Date -->
+        <div class="filter-group">
+          <label for="asOfDate" class="filter-label">Fecha del Balance</label>
+          <input 
+            type="date" 
+            id="asOfDate"
+            class="filter-input date-input"
+            [(ngModel)]="filters.asOfDate"
+            [min]="minDate()"
+            [max]="maxDate()"
+            required
+            aria-required="true">
+        </div>
+
+        <!-- Comparison Mode Toggle -->
+        <div class="filter-group">
+          <label class="filter-label">Modo Comparativo</label>
+          <button 
+            type="button"
+            class="comparison-toggle"
+            [class.active]="filters.compareDate"
+            (click)="toggleComparisonMode()">
+            <span class="toggle-icon">
+              @if (filters.compareDate) {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              }
+            </span>
+            <span>{{ filters.compareDate ? 'Activado' : 'Desactivado' }}</span>
+          </button>
+        </div>
+
+        <!-- Comparison Date (conditional) -->
+        @if (filters.compareDate !== undefined) {
+          <div class="filter-group">
+            <label for="compareDate" class="filter-label">Fecha de Comparación</label>
+            <input 
+              type="date" 
+              id="compareDate"
+              class="filter-input date-input"
+              [(ngModel)]="filters.compareDate"
+              [min]="minDate()"
+              [max]="filters.asOfDate">
+          </div>
+        }
+
+        <!-- Options -->
+        <div class="filter-group filter-options">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="filters.showZeroBalances"
+              class="checkbox-input">
+            <span class="checkbox-text">Mostrar saldos en cero</span>
+          </label>
+          
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="filters.includeInactive"
+              class="checkbox-input">
+            <span class="checkbox-text">Incluir cuentas inactivas</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="filters-actions">
+        <button 
+          class="btn-secondary" 
+          (click)="resetFilters()"
+          [disabled]="state() === 'loading'">
+          Limpiar
+        </button>
+        <button 
+          class="btn-primary" 
+          (click)="generateReport()"
+          [disabled]="state() === 'loading' || !filters.asOfDate">
+          @if (state() === 'loading') {
+            <span class="spinner-small"></span>
+            <span>Generando...</span>
+          } @else {
+            <span>Generar Reporte</span>
+          }
+        </button>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section" aria-live="polite">
+      
+      <!-- Idle State -->
+      @if (state() === 'idle') {
+        <div class="state-card idle-state">
+          <div class="state-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 3V21H21" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M18 17V9" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M13 17V5" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 17V14" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Seleccione la fecha del balance</h3>
+          <p class="state-description">Configure la fecha y opciones, luego presione "Generar Reporte" para visualizar el Balance General.</p>
+        </div>
+      }
+
+      <!-- Loading State with Skeleton -->
+      @if (state() === 'loading') {
+        <div class="state-card loading-state">
+          <div class="skeleton-container">
+            <!-- KPI Skeletons -->
+            <div class="skeleton-kpis">
+              <div class="skeleton-kpi">
+                <div class="skeleton-line skeleton-label"></div>
+                <div class="skeleton-line skeleton-value"></div>
+              </div>
+              <div class="skeleton-kpi">
+                <div class="skeleton-line skeleton-label"></div>
+                <div class="skeleton-line skeleton-value"></div>
+              </div>
+              <div class="skeleton-kpi">
+                <div class="skeleton-line skeleton-label"></div>
+                <div class="skeleton-line skeleton-value"></div>
+              </div>
+            </div>
+            <!-- Table Skeleton -->
+            <div class="skeleton-table">
+              <div class="skeleton-header">
+                <div class="skeleton-line skeleton-col-sm"></div>
+                <div class="skeleton-line skeleton-col-lg"></div>
+                <div class="skeleton-line skeleton-col-md"></div>
+              </div>
+              @for (i of [1,2,3,4,5,6,7,8]; track i) {
+                <div class="skeleton-row">
+                  <div class="skeleton-line skeleton-col-sm"></div>
+                  <div class="skeleton-line skeleton-col-lg"></div>
+                  <div class="skeleton-line skeleton-col-md"></div>
+                </div>
+              }
+            </div>
+          </div>
+          <p class="loading-text">Calculando saldos...</p>
+        </div>
+      }
+
+      <!-- Error State -->
+      @if (state() === 'error') {
+        <div class="state-card error-state" role="alert">
+          <div class="state-icon error-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 9L9 15" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 9L15 15" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Error al generar el reporte</h3>
+          <p class="state-description">{{ errorMessage() }}</p>
+          <button class="btn-retry" (click)="generateReport()">Reintentar</button>
+        </div>
+      }
+
+      <!-- Empty State -->
+      @if (state() === 'empty') {
+        <div class="state-card empty-state">
+          <div class="state-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2V22" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M17 5H9.5C8.57174 5 7.6815 5.36875 7.02513 6.02513C6.36875 6.6815 6 7.57174 6 8.5C6 9.42826 6.36875 10.3185 7.02513 10.9749C7.6815 11.6313 8.57174 12 9.5 12H14.5C15.4283 12 16.3185 12.3687 16.9749 13.0251C17.6313 13.6815 18 14.5717 18 15.5C18 16.4283 17.6313 17.3185 16.9749 17.9749C16.3185 18.6313 15.4283 19 14.5 19H6" stroke="#B5B7C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="state-title">Sin datos para mostrar</h3>
+          <p class="state-description">No se encontraron cuentas con saldos para la fecha seleccionada.</p>
+          <p class="state-hint">Intente con una fecha diferente o habilite "Mostrar saldos en cero".</p>
+        </div>
+      }
+
+      <!-- Success State - Report -->
+      @if (state() === 'success') {
+        <div class="report-card print-area">
+          <!-- Report Info Header (for print) -->
+          <div class="report-info print-only">
+            <h2>{{ companyTitle }}</h2>
+            <h3>{{ reportTitle }}</h3>
+            <p>Al {{ formattedAsOfDate() }}</p>
+            @if (hasComparison()) {
+              <p>Comparativo con {{ formattedCompareDate() }}</p>
+            }
+            <p class="generated-info">Generado: {{ generatedAt() | date:'dd/MM/yyyy HH:mm' }}</p>
+          </div>
+
+          <!-- KPI Summary Cards -->
+          <div class="kpi-cards-container">
+            <!-- Total Assets -->
+            <div class="kpi-card kpi-assets">
+              <div class="kpi-header">
+                <span class="kpi-label">Total Activos</span>
+                @if (hasComparison() && summary()?.assetsVariancePercentage !== undefined) {
+                  <span class="kpi-variance" [ngClass]="getVarianceClass(summary()?.assetsVariance)">
+                    {{ getVarianceIcon(summary()?.assetsVariance) }} {{ summary()?.assetsVariancePercentage | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+              <span class="kpi-value">C$ {{ summary()?.totalAssets | number:'1.2-2' }}</span>
+              @if (hasComparison()) {
+                <span class="kpi-previous">Anterior: C$ {{ summary()?.previousTotalAssets | number:'1.2-2' }}</span>
+              }
+              <div class="kpi-chart assets">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0,25 Q15,20 25,22 T50,15 T75,18 T100,10" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Total Liabilities -->
+            <div class="kpi-card kpi-liabilities">
+              <div class="kpi-header">
+                <span class="kpi-label">Total Pasivos</span>
+                @if (hasComparison() && summary()?.liabilitiesVariancePercentage !== undefined) {
+                  <span class="kpi-variance" [ngClass]="getVarianceClass(summary()?.liabilitiesVariance)">
+                    {{ getVarianceIcon(summary()?.liabilitiesVariance) }} {{ summary()?.liabilitiesVariancePercentage | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+              <span class="kpi-value">C$ {{ summary()?.totalLiabilities | number:'1.2-2' }}</span>
+              @if (hasComparison()) {
+                <span class="kpi-previous">Anterior: C$ {{ summary()?.previousTotalLiabilities | number:'1.2-2' }}</span>
+              }
+              <div class="kpi-chart liabilities">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0,20 Q20,25 35,18 T60,22 T85,15 T100,18" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Total Equity -->
+            <div class="kpi-card kpi-equity">
+              <div class="kpi-header">
+                <span class="kpi-label">Total Patrimonio</span>
+                @if (hasComparison() && summary()?.equityVariancePercentage !== undefined) {
+                  <span class="kpi-variance" [ngClass]="getVarianceClass(summary()?.equityVariance)">
+                    {{ getVarianceIcon(summary()?.equityVariance) }} {{ summary()?.equityVariancePercentage | number:'1.1-1' }}%
+                  </span>
+                }
+              </div>
+              <span class="kpi-value">C$ {{ summary()?.totalEquity | number:'1.2-2' }}</span>
+              @if (hasComparison()) {
+                <span class="kpi-previous">Anterior: C$ {{ summary()?.previousTotalEquity | number:'1.2-2' }}</span>
+              }
+              <div class="kpi-chart equity">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0,22 Q10,18 25,20 T50,12 T75,15 T100,8" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Balance Status -->
+            <div class="kpi-card kpi-status" [class.unbalanced]="!isBalanced()">
+              <span class="kpi-label">Ecuación Contable</span>
+              <span class="kpi-value status" [class.balanced]="isBalanced()" [class.unbalanced]="!isBalanced()">
+                @if (isBalanced()) {
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Cuadrado
+                } @else {
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Descuadrado
+                }
+              </span>
+              @if (!isBalanced()) {
+                <span class="kpi-difference">Diferencia: C$ {{ summary()?.difference | number:'1.2-2' }}</span>
+              }
+            </div>
+          </div>
+
+          <!-- Balance Sheet Table -->
+          <div class="table-container">
+            @for (group of groupedEntries(); track trackBySection($index, group)) {
+              <!-- Section Header -->
+              <div class="section-header" 
+                   [class.collapsed]="isSectionCollapsed(group.section)"
+                   (click)="toggleSection(group.section)">
+                <div class="section-title">
+                  <button class="section-toggle" [attr.aria-expanded]="!isSectionCollapsed(group.section)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                         [class.rotated]="!isSectionCollapsed(group.section)">
+                      <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <h4>{{ group.sectionName }}</h4>
+                </div>
+                <div class="section-total">
+                  <span class="total-amount">C$ {{ group.totals.total | number:'1.2-2' }}</span>
+                  @if (hasComparison() && group.totals.variancePercentage !== undefined) {
+                    <span class="total-variance" [ngClass]="getVarianceClass(group.totals.variance)">
+                      {{ getVarianceIcon(group.totals.variance) }} {{ group.totals.variancePercentage | number:'1.1-1' }}%
+                    </span>
+                  }
+                </div>
+              </div>
+
+              <!-- Section Content -->
+              @if (!isSectionCollapsed(group.section)) {
+                <table class="balance-sheet-table" role="grid" [attr.aria-label]="group.sectionName">
+                  <thead>
+                    <tr>
+                      <th scope="col" class="col-code">Código</th>
+                      <th scope="col" class="col-name">Cuenta</th>
+                      <th scope="col" class="col-balance text-right">Saldo Actual</th>
+                      @if (hasComparison()) {
+                        <th scope="col" class="col-previous text-right">Saldo Anterior</th>
+                        <th scope="col" class="col-variance text-right">Variación</th>
+                        <th scope="col" class="col-percentage text-right">%</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (entry of group.entries; track trackByAccountId($index, entry)) {
+                      <tr 
+                        class="table-row"
+                        [class.level-1]="entry.accountLevel === 1"
+                        [class.level-2]="entry.accountLevel === 2"
+                        [class.level-3]="entry.accountLevel === 3"
+                        [class.is-parent]="!entry.isDetail"
+                        [class.is-detail]="entry.isDetail"
+                        [class.clickable]="entry.isDetail"
+                        (click)="entry.isDetail ? openDrillDown(entry) : null">
+                        <td class="col-code" [attr.data-label]="'Código'">
+                          <div class="code-cell">
+                            @if (hasChildren(entry)) {
+                              <button 
+                                class="expand-toggle"
+                                (click)="toggleAccount(entry.accountId); $event.stopPropagation()"
+                                [attr.aria-expanded]="isAccountExpanded(entry.accountId)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                     [class.rotated]="isAccountExpanded(entry.accountId)">
+                                  <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                              </button>
+                            }
+                            <span class="account-code">{{ entry.accountNumber }}</span>
+                          </div>
+                        </td>
+                        <td class="col-name" [attr.data-label]="'Cuenta'">
+                          <span 
+                            class="account-name" 
+                            [style.padding-left.px]="(entry.accountLevel - 1) * 20"
+                            [class.font-bold]="!entry.isDetail">
+                            {{ entry.accountName }}
+                            @if (entry.isDetail) {
+                              <svg class="drill-down-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                            }
+                          </span>
+                        </td>
+                        <td class="col-balance text-right" [attr.data-label]="'Saldo Actual'">
+                          <span class="amount" [class.zero]="entry.balance === 0">
+                            {{ entry.balance | number:'1.2-2' }}
+                          </span>
+                        </td>
+                        @if (hasComparison()) {
+                          <td class="col-previous text-right" [attr.data-label]="'Saldo Anterior'">
+                            <span class="amount previous" [class.zero]="entry.previousBalance === 0">
+                              {{ entry.previousBalance | number:'1.2-2' }}
+                            </span>
+                          </td>
+                          <td class="col-variance text-right" [attr.data-label]="'Variación'">
+                            <span class="amount variance" [ngClass]="getVarianceClass(entry.variance)">
+                              {{ entry.variance | number:'1.2-2' }}
+                            </span>
+                          </td>
+                          <td class="col-percentage text-right" [attr.data-label]="'%'">
+                            <span class="variance-badge" [ngClass]="getVarianceClass(entry.variancePercentage)">
+                              {{ getVarianceIcon(entry.variancePercentage) }}
+                              {{ entry.variancePercentage | number:'1.1-1' }}%
+                            </span>
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            }
+
+            <!-- Accounting Equation Summary -->
+            <div class="equation-summary">
+              <div class="equation-row">
+                <span class="equation-label">Total Pasivos + Patrimonio</span>
+                <span class="equation-value">C$ {{ summary()?.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
+              </div>
+              <div class="equation-divider"></div>
+              <div class="equation-row equation-result" [class.balanced]="isBalanced()" [class.unbalanced]="!isBalanced()">
+                <span class="equation-label">
+                  @if (isBalanced()) {
+                    Activos = Pasivos + Patrimonio ✓
+                  } @else {
+                    Diferencia (Activos - Pasivos - Patrimonio)
+                  }
+                </span>
+                <span class="equation-value">
+                  @if (!isBalanced()) {
+                    C$ {{ summary()?.difference | number:'1.2-2' }}
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Report Footer -->
+          <div class="report-footer">
+            <span class="footer-info">
+              {{ summary()?.accountCount }} cuentas | Al {{ formattedAsOfDate() }}
+              @if (hasComparison()) {
+                <span> | Comparando con {{ formattedCompareDate() }}</span>
+              }
+            </span>
+            <span class="footer-timestamp">
+              Generado: {{ generatedAt() | date:'dd/MM/yyyy HH:mm:ss' }}
+            </span>
+          </div>
+        </div>
+      }
+    </section>
+  </main>
+
+  <!-- Drill-Down Modal -->
+  @if (drillDown().isOpen) {
+    <div class="modal-overlay" (click)="closeDrillDown()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title-container">
+            <h3 class="modal-title">Movimientos de Cuenta</h3>
+            <span class="modal-subtitle">
+              {{ drillDown().account?.accountNumber }} - {{ drillDown().account?.name }}
+            </span>
+          </div>
+          <button class="modal-close" (click)="closeDrillDown()" aria-label="Cerrar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          @if (drillDown().isLoading) {
+            <div class="modal-loading">
+              <div class="spinner-large"></div>
+              <p>Cargando movimientos...</p>
+            </div>
+          } @else if (drillDown().error) {
+            <div class="modal-error">
+              <p>{{ drillDown().error }}</p>
+            </div>
+          } @else {
+            <!-- Movement Summary -->
+            <div class="movement-summary">
+              <div class="summary-item">
+                <span class="summary-label">Saldo Inicial</span>
+                <span class="summary-value">C$ {{ drillDown().openingBalance | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Total Débitos</span>
+                <span class="summary-value debit">C$ {{ drillDown().totalDebits | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Total Créditos</span>
+                <span class="summary-value credit">C$ {{ drillDown().totalCredits | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Saldo Final</span>
+                <span class="summary-value final">C$ {{ drillDown().closingBalance | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
+            <!-- Movements Table -->
+            @if (drillDown().movements.length > 0) {
+              <div class="movements-table-container">
+                <table class="movements-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Asiento</th>
+                      <th>Descripción</th>
+                      <th class="text-right">Debe</th>
+                      <th class="text-right">Haber</th>
+                      <th class="text-right">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (movement of drillDown().movements; track trackByMovement($index, movement)) {
+                      <tr>
+                        <td>{{ formatShortDate(movement.entryDate) }}</td>
+                        <td>
+                          <span class="entry-number">{{ movement.entryNumber }}</span>
+                        </td>
+                        <td>{{ movement.description }}</td>
+                        <td class="text-right">
+                          @if (movement.debitAmount > 0) {
+                            <span class="amount debit">{{ movement.debitAmount | number:'1.2-2' }}</span>
+                          } @else {
+                            <span class="amount zero">-</span>
+                          }
+                        </td>
+                        <td class="text-right">
+                          @if (movement.creditAmount > 0) {
+                            <span class="amount credit">{{ movement.creditAmount | number:'1.2-2' }}</span>
+                          } @else {
+                            <span class="amount zero">-</span>
+                          }
+                        </td>
+                        <td class="text-right">
+                          <span class="amount balance">{{ movement.balance | number:'1.2-2' }}</span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <div class="no-movements">
+                <p>No hay movimientos en el período seleccionado.</p>
+              </div>
+            }
+          }
+        </div>
+
+        <div class="modal-footer">
+          <span class="period-info">
+            Período: {{ formatShortDate(drillDown().periodStart) }} - {{ formatShortDate(drillDown().periodEnd) }}
+          </span>
+          <button class="btn-secondary" (click)="closeDrillDown()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

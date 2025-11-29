@@ -227,25 +227,30 @@
   pointer-events: none;
   z-index: 0;
   opacity: 1;
+  /* Prevent any movement or animation */
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+  will-change: auto;
 }
 
 .decoration--top-right {
   top: 90px;
-  right: 0;
+  right: 100px;
   width: 362px;
   height: auto;
 }
 
 .decoration--middle-right {
   top: 419px;
-  right: 0;
+  right: 100px;
   width: 226px;
   height: auto;
 }
 
 .decoration--bottom-right {
-  bottom: 0;
-  right: 0;
+  top: 750px;
+  right: 100px;
   width: 337px;
   height: auto;
 }

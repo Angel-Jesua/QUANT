@@ -7,6 +7,7 @@ export interface IUser {
   id: number;
   username: string;
   email: string;
+  cedula?: string;
   fullName: string;
   role: UserRole;
   isActive: boolean;
@@ -18,6 +19,7 @@ export interface IUser {
 export interface ICreateUser {
   username: string;
   email: string;
+  cedula?: string;
   password: string;
   fullName: string;
   role?: UserRole;
@@ -28,6 +30,7 @@ export interface ICreateUser {
 export interface ICreateUserWithHash {
   username: string;
   email: string;
+  cedula?: string;
   passwordHash: string;
   fullName: string;
   role?: UserRole;
@@ -38,6 +41,7 @@ export interface ICreateUserWithHash {
 export interface IUpdateUser {
   username?: string;
   email?: string;
+  cedula?: string;
   fullName?: string;
   role?: UserRole;
   isActive?: boolean;

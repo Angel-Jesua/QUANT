@@ -85,6 +85,7 @@ model UserAccount {
   id                  Int        @id @default(autoincrement()) @map("id")
   username            String     @unique @map("username")
   email               String     @unique @map("email")
+  cedula              String?    @unique @map("cedula")
   passwordHash        String     @map("password_hash")
   fullName            String     @map("full_name")
   role                UserRole   @default(accountant) @map("role")
