@@ -88,7 +88,7 @@ describe('UserService - Prisma-mocked integration', () => {
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
-                profileImageUrl: null,
+                profileImageUrl: 'images/default-avatar.svg',
                 avatarType: 'generated',
                 lastLogin: null,
             });
@@ -114,6 +114,7 @@ describe('UserService - Prisma-mocked integration', () => {
                     fullName: validUserData.fullName,
                     role: client_1.UserRole.accountant,
                     avatarType: 'generated',
+                    profileImageUrl: expect.any(String),
                     photoRequested: true,
                     isActive: true,
                     passwordChangedAt: expect.any(Date),
@@ -157,6 +158,8 @@ describe('UserService - Prisma-mocked integration', () => {
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
+                profileImageUrl: 'images/default-avatar.svg',
+                profileImageStatus: 'default',
                 avatarType: 'generated',
             }));
             // Sensitive field should not be present

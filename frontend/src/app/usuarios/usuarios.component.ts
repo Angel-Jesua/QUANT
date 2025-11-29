@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, OnInit, signal, computed, inject, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
 import { UsersService, User, CreateUserData, UpdateUserData } from '../shared/services/users.service';
@@ -17,7 +17,7 @@ interface PaginatedUsers {
 @Component({
   selector: 'app-usuarios',
   standalone: true,
-  imports: [CommonModule, SidebarComponent, ReactiveFormsModule],
+  imports: [CommonModule, SidebarComponent, ReactiveFormsModule, FormsModule],
   templateUrl: './usuarios.component.html',
   styleUrls: ['./usuarios.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -51,6 +51,13 @@ export class UsuariosComponent implements OnInit {
   // Edit mode signals
   readonly isEditing = signal<boolean>(false);
   readonly editingUserId = signal<number | null>(null);
+  
+  // Password verification modal signals
+  readonly showPasswordModal = signal<boolean>(false);
+  readonly passwordError = signal<string>('');
+  readonly isVerifying = signal<boolean>(false);
+  readonly selectedUserForView = signal<User | null>(null);
+  adminPassword = '';
   
   registrationForm: FormGroup;
   showForm = signal<boolean>(true);
@@ -569,6 +576,48 @@ export class UsuariosComponent implements OnInit {
 
   isNumber(value: string | number): value is number {
     return typeof value === 'number';
+  }
+
+  isAdmin(): boolean {
+    const profile = this.profileService.snapshot;
+    return profile?.role?.toLowerCase() === 'administrator';
+  }
+
+  openPasswordModal(user: User): void {
+    this.selectedUserForView.set(user);
+    this.adminPassword = '';
+    this.passwordError.set('');
+    this.showPasswordModal.set(true);
+  }
+
+  closePasswordModal(): void {
+    this.showPasswordModal.set(false);
+    this.selectedUserForView.set(null);
+    this.adminPassword = '';
+    this.passwordError.set('');
+  }
+
+  verifyAndViewUser(): void {
+    const user = this.selectedUserForView();
+    if (!user || !this.adminPassword) {
+      this.passwordError.set('Ingrese su contraseña');
+      return;
+    }
+
+    this.isVerifying.set(true);
+    this.passwordError.set('');
+
+    this.usersService.verifyPasswordAndGetDetails(user.id, this.adminPassword).subscribe({
+      next: () => {
+        this.isVerifying.set(false);
+        this.closePasswordModal();
+        this.router.navigate(['/usuarios', user.id]);
+      },
+      error: (error) => {
+        this.isVerifying.set(false);
+        this.passwordError.set(error.error?.message || 'Contraseña incorrecta');
+      }
+    });
   }
 
   viewUser(user: User): void {

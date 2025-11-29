@@ -460,3 +460,27 @@ export function getEncryptionService(): EncryptionService {
 export function resetEncryptionService(): void {
   encryptionServiceInstance = null;
 }
+
+/**
+ * Generates a deterministic hash of a value for searchable encrypted fields.
+ * Uses HMAC-SHA256 with the encryption key to create a consistent hash
+ * that can be used for lookups without exposing the plaintext.
+ * 
+ * @param value - The plaintext value to hash (e.g., email)
+ * @param key - Optional encryption key (defaults to ENCRYPTION_KEY env var)
+ * @returns 64-character hex string (SHA-256 hash)
+ */
+export function generateSearchHash(value: string, key?: string): string {
+  const hashKey = key ?? process.env.ENCRYPTION_KEY;
+  if (!hashKey) {
+    throw new KeyValidationError('MISSING');
+  }
+  
+  // Normalize the value (lowercase for emails, trim whitespace)
+  const normalizedValue = value.toLowerCase().trim();
+  
+  // Use HMAC-SHA256 for deterministic hashing with the encryption key
+  const hmac = crypto.createHmac('sha256', Buffer.from(hashKey, 'hex'));
+  hmac.update(normalizedValue);
+  return hmac.digest('hex');
+}

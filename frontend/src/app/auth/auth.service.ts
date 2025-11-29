@@ -46,7 +46,7 @@ export class AuthService {
   }
 
   checkAuth(): Observable<boolean> {
-    return this.http.get<any>(`${this.baseUrl}/auth/me`).pipe(
+    return this.http.get<any>(`${this.baseUrl}/auth/me`, { withCredentials: true }).pipe(
       tap(response => {
         if (response.success && response.user) {
           this.isAuthenticatedSubject.next(true);
@@ -64,9 +64,11 @@ export class AuthService {
   }
 
   login(credentials: LoginCredentials): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.baseUrl}/auth/login`, credentials).pipe(
+    return this.http.post<LoginResponse>(`${this.baseUrl}/auth/login`, credentials, {
+      withCredentials: true // Importante para recibir y enviar cookies HttpOnly
+    }).pipe(
       tap(response => {
-        if (response.token) {
+        if (response.success) {
           this.handleAuthentication(response);
         }
       }),
@@ -113,7 +115,7 @@ export class AuthService {
   }
 
   logout(): void {
-    this.http.post(`${this.baseUrl}/auth/logout`, {}).subscribe(() => {
+    this.http.post(`${this.baseUrl}/auth/logout`, {}, { withCredentials: true }).subscribe(() => {
       this.isAuthenticatedSubject.next(false);
       this.userProfileService.clearProfile();
     });

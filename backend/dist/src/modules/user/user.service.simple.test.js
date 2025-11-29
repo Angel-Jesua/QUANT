@@ -122,6 +122,7 @@ describe('UserService Logic Tests', () => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 profileImageUrl: undefined,
+                profileImageStatus: 'default',
                 avatarType: client_1.AvatarType.generated,
                 lastLogin: undefined,
             };
@@ -149,6 +150,7 @@ describe('UserService Logic Tests', () => {
                     createdAt: new Date(),
                     updatedAt: new Date(),
                     profileImageUrl: undefined,
+                    profileImageStatus: 'default',
                     avatarType: client_1.AvatarType.generated,
                     lastLogin: undefined,
                 }

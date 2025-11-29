@@ -111,4 +111,15 @@ export class ClientService {
   updateClient(id: number, client: Partial<CreateClientDTO>): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}`, client);
   }
+
+  verifyAndGetClientDetails(clientId: number, password: string): Observable<{ 
+    success: boolean; 
+    message?: string; 
+    data?: { email?: string; phone?: string; address?: string } 
+  }> {
+    return this.http.post<{ success: boolean; message?: string; data?: { email?: string; phone?: string; address?: string } }>(
+      `${this.apiUrl}/${clientId}/verify-details`,
+      { password }
+    );
+  }
 }

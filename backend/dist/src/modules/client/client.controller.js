@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ClientController = void 0;
+exports.ClientVerifyController = exports.ClientController = void 0;
 const client_service_1 = require("./client.service");
 const error_1 = require("../../utils/error");
 const client_1 = require("@prisma/client");
@@ -26,13 +26,22 @@ class ClientController {
             const isActiveFilter = parseBooleanQuery(req.query.isActive);
             const currencyIdFilter = parseOptionalPositiveInt(req.query.currencyId);
             const countryCode = typeof req.query.countryCode === 'string' ? req.query.countryCode.trim().toUpperCase() : undefined;
-            const stateCode = typeof req.query.stateCode === 'string' ? req.query.stateCode.trim() : undefined;
+            const orderByParam = typeof req.query.orderBy === 'string' ? req.query.orderBy : undefined;
+            const orderDirParam = typeof req.query.orderDir === 'string' ? req.query.orderDir : undefined;
+            const validOrderBy = ['clientCode', 'name', 'createdAt', 'updatedAt', 'country', 'currencyId', 'isActive'];
+            const orderBy = validOrderBy.includes(orderByParam) ? orderByParam : undefined;
+            const orderDir = orderDirParam === 'asc' || orderDirParam === 'desc' ? orderDirParam : undefined;
+            const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : undefined;
+            const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : undefined;
             const serviceFilters = {
                 search,
                 isActive: typeof isActiveFilter === 'boolean' ? isActiveFilter : undefined,
                 currencyId: typeof currencyIdFilter === 'number' ? currencyIdFilter : undefined,
                 countryCode: countryCode && /^[A-Z]{2}$/.test(countryCode) ? countryCode : undefined,
-                stateCode: stateCode && stateCode.trim().length > 0 ? stateCode : undefined,
+                orderBy,
+                orderDir,
+                startDate: startDate && !isNaN(startDate.getTime()) ? startDate : undefined,
+                endDate: endDate && !isNaN(endDate.getTime()) ? endDate : undefined,
             };
             const list = await this.clientService.getAllClients(serviceFilters);
             // Enforce ownership
@@ -186,14 +195,11 @@ class ClientController {
                 name,
                 currencyId: currencyIdCandidate,
                 taxId: typeof body.taxId === 'string' ? body.taxId.trim() : undefined,
-                contactName: typeof body.contactName === 'string' ? body.contactName.trim() : undefined,
                 email: typeof body.email === 'string' ? body.email.trim() : undefined,
                 phone: typeof body.phone === 'string' ? body.phone.trim() : undefined,
                 address: typeof body.address === 'string' ? body.address.trim() : undefined,
                 city: typeof body.city === 'string' ? body.city.trim() : undefined,
-                state: typeof body.state === 'string' ? body.state.trim() : undefined,
                 country: typeof body.country === 'string' ? body.country.trim().toUpperCase() : undefined,
-                postalCode: typeof body.postalCode === 'string' ? body.postalCode.trim() : undefined,
                 creditLimit: typeof body.creditLimit === 'number'
                     ? body.creditLimit
                     : body.creditLimit,
@@ -292,14 +298,11 @@ class ClientController {
                 'clientCode',
                 'taxId',
                 'name',
-                'contactName',
                 'email',
                 'phone',
                 'address',
                 'city',
-                'state',
                 'country',
-                'postalCode',
                 'creditLimit',
                 'currencyId',
                 'isActive',
@@ -331,10 +334,6 @@ class ClientController {
                 normalized.taxId = null;
             if (typeof body.name === 'string')
                 normalized.name = body.name.trim();
-            if (typeof body.contactName === 'string')
-                normalized.contactName = body.contactName.trim();
-            if (body.contactName === null)
-                normalized.contactName = null;
             if (typeof body.email === 'string')
                 normalized.email = body.email.trim();
             if (body.email === null)
@@ -351,16 +350,8 @@ class ClientController {
                 normalized.city = body.city.trim();
             if (body.city === null)
                 normalized.city = null;
-            if (typeof body.state === 'string')
-                normalized.state = body.state.trim();
-            if (body.state === null)
-                normalized.state = null;
             if (typeof body.country === 'string')
                 normalized.country = body.country.trim().toUpperCase();
-            if (typeof body.postalCode === 'string')
-                normalized.postalCode = body.postalCode.trim();
-            if (body.postalCode === null)
-                normalized.postalCode = null;
             if (typeof body.isActive === 'boolean')
                 normalized.isActive = body.isActive;
             if (body.creditLimit !== undefined) {
@@ -586,3 +577,42 @@ function parseOptionalPositiveInt(input) {
         return undefined;
     return Math.floor(v);
 }
+class ClientVerifyController {
+    constructor() {
+        this.clientService = new client_service_1.ClientService();
+    }
+    /**
+     * Verify user password and get client details with decrypted email/phone.
+     * POST /clients/:id/verify-details
+     * Body: { password: string }
+     */
+    async verifyAndGetDetails(req, res) {
+        try {
+            const userId = req.userId ?? req.user?.id;
+            if (!userId) {
+                res.status(401).json({ success: false, message: 'Unauthorized' });
+                return;
+            }
+            const clientId = Number.parseInt(req.params.id, 10);
+            if (Number.isNaN(clientId) || clientId <= 0) {
+                res.status(400).json({ success: false, message: 'ID de cliente inválido' });
+                return;
+            }
+            const { password } = req.body;
+            if (!password || typeof password !== 'string') {
+                res.status(400).json({ success: false, message: 'Contraseña requerida' });
+                return;
+            }
+            const result = await this.clientService.verifyAndGetClientDetails(userId, password, clientId, {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent')
+            });
+            res.status(result.statusCode || (result.success ? 200 : 400)).json(result);
+        }
+        catch (error) {
+            console.error('Error in verifyAndGetDetails:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor' });
+        }
+    }
+}
+exports.ClientVerifyController = ClientVerifyController;

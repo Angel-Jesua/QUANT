@@ -14,7 +14,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { EncryptionService } from '../src/utils/encryption.service';
+import { EncryptionService, generateSearchHash } from '../src/utils/encryption.service';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -39,6 +39,23 @@ interface FieldConfig {
   fields: string[];
   idField: string;
 }
+
+// Configuration for fields that need hash generation for searchability
+interface HashFieldConfig {
+  model: string;
+  sourceField: string;
+  hashField: string;
+  idField: string;
+}
+
+const HASH_FIELD_CONFIG: HashFieldConfig[] = [
+  {
+    model: 'UserAccount',
+    sourceField: 'email',
+    hashField: 'emailHash',
+    idField: 'id',
+  },
+];
 
 // Configuration based on actual Prisma schema
 const MIGRATION_CONFIG: FieldConfig[] = [
@@ -188,6 +205,73 @@ async function migrateModel(config: FieldConfig): Promise<MigrationResult> {
 
 
 /**
+ * Generates search hashes for encrypted fields that need to be searchable.
+ * This allows lookups by email without exposing the plaintext.
+ */
+async function generateSearchHashes(): Promise<void> {
+  console.log('\n🔑 Generating search hashes for encrypted fields...');
+  
+  for (const config of HASH_FIELD_CONFIG) {
+    console.log(`\n   Processing ${config.model}.${config.hashField}...`);
+    
+    const modelRef = (prisma as any)[config.model.charAt(0).toLowerCase() + config.model.slice(1)];
+    if (!modelRef) {
+      console.log(`   ⚠️  Model ${config.model} not found`);
+      continue;
+    }
+    
+    // Get all records that need hash generation
+    const records = await modelRef.findMany({
+      select: {
+        [config.idField]: true,
+        [config.sourceField]: true,
+        [config.hashField]: true,
+      },
+    });
+    
+    let updated = 0;
+    let skipped = 0;
+    
+    for (const record of records) {
+      // Skip if hash already exists
+      if (record[config.hashField]) {
+        skipped++;
+        continue;
+      }
+      
+      const sourceValue = record[config.sourceField];
+      if (!sourceValue) {
+        skipped++;
+        continue;
+      }
+      
+      // If the value is encrypted, we need to decrypt it first to generate the hash
+      let plaintext = sourceValue;
+      if (encryptionService.isEncrypted(sourceValue)) {
+        try {
+          plaintext = encryptionService.decrypt(sourceValue, config.sourceField, config.model);
+        } catch (error) {
+          console.log(`   ⚠️  Could not decrypt ${config.sourceField} for ID ${record[config.idField]}`);
+          continue;
+        }
+      }
+      
+      // Generate hash from plaintext
+      const hash = generateSearchHash(plaintext);
+      
+      await modelRef.update({
+        where: { [config.idField]: record[config.idField] },
+        data: { [config.hashField]: hash },
+      });
+      
+      updated++;
+    }
+    
+    console.log(`   ✅ Updated: ${updated}, Skipped: ${skipped}`);
+  }
+}
+
+/**
  * Main migration function.
  */
 async function main() {
@@ -227,6 +311,9 @@ async function main() {
     const result = await migrateModel(config);
     results.push(result);
   }
+  
+  // Generate search hashes for encrypted fields
+  await generateSearchHashes();
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 

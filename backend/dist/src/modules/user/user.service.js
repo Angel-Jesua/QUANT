@@ -8,32 +8,96 @@ const client_1 = require("@prisma/client");
 const password_1 = require("../../utils/password");
 const user_validation_1 = require("./user.validation");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const profile_image_util_1 = require("./profile-image.util");
+const encryption_service_1 = require("../../utils/encryption.service");
 const prisma = new client_1.PrismaClient();
+const USER_RESPONSE_SELECT = {
+    id: true,
+    username: true,
+    email: true,
+    cedula: true,
+    fullName: true,
+    role: true,
+    isActive: true,
+    createdAt: true,
+    updatedAt: true,
+    profileImageUrl: true,
+    avatarType: true,
+    lastLogin: true,
+};
+const USER_DETAILS_SELECT = {
+    ...USER_RESPONSE_SELECT,
+    lastActivity: true,
+    failedLoginAttempts: true,
+    lockedUntil: true,
+    passwordChangedAt: true,
+    mustChangePassword: true,
+    googleId: true,
+    facebookId: true,
+    createdById: true,
+    updatedById: true,
+    _count: {
+        select: {
+            sessions: true,
+            auditLogs: true,
+            createdClients: true,
+            updatedClients: true,
+            createdAccounts: true,
+            updatedAccounts: true,
+            createdCurrencies: true,
+            updatedCurrencies: true,
+        }
+    }
+};
+function mapStatusToAvatarType(status) {
+    return status === 'custom' ? client_1.AvatarType.uploaded : client_1.AvatarType.generated;
+}
+function decryptEmail(encryptedEmail) {
+    try {
+        const encryptionService = (0, encryption_service_1.getEncryptionService)();
+        if (encryptionService.isEncrypted(encryptedEmail)) {
+            return encryptionService.decrypt(encryptedEmail, 'email', 'UserAccount');
+        }
+        return encryptedEmail;
+    }
+    catch (error) {
+        console.error('Error decrypting email:', error);
+        return encryptedEmail;
+    }
+}
+function mapUserRecord(user) {
+    if (!user) {
+        return null;
+    }
+    const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(user.profileImageUrl);
+    return {
+        id: user.id,
+        username: user.username,
+        email: decryptEmail(user.email),
+        cedula: user.cedula ?? undefined,
+        fullName: user.fullName,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        avatarType: user.avatarType,
+        profileImageUrl: profileMeta.path ?? undefined,
+        profileImageStatus: profileMeta.status,
+        lastLogin: user.lastLogin ?? undefined,
+    };
+}
+function mapUserList(users) {
+    return users.map((user) => mapUserRecord(user)).filter((item) => Boolean(item));
+}
 class UserService {
     /**
      * Get all users
      */
     async getAllUsers() {
         const users = await prisma.userAccount.findMany({
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                fullName: true,
-                role: true,
-                isActive: true,
-                createdAt: true,
-                updatedAt: true,
-                profileImageUrl: true,
-                avatarType: true,
-                lastLogin: true,
-            },
+            select: USER_RESPONSE_SELECT,
         });
-        return users.map(user => ({
-            ...user,
-            profileImageUrl: user.profileImageUrl || undefined,
-            lastLogin: user.lastLogin || undefined,
-        }));
+        return mapUserList(users);
     }
     /**
      * Get user by ID
@@ -41,27 +105,44 @@ class UserService {
     async getUserById(id) {
         const user = await prisma.userAccount.findUnique({
             where: { id },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                fullName: true,
-                role: true,
-                isActive: true,
-                createdAt: true,
-                updatedAt: true,
-                profileImageUrl: true,
-                avatarType: true,
-                lastLogin: true,
-            },
+            select: USER_RESPONSE_SELECT,
         });
-        if (!user) {
+        return mapUserRecord(user);
+    }
+    /**
+     * Get user details by ID
+     */
+    async getUserDetails(id) {
+        const user = await prisma.userAccount.findUnique({
+            where: { id },
+            select: USER_DETAILS_SELECT,
+        });
+        if (!user)
             return null;
-        }
+        const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(user.profileImageUrl);
         return {
-            ...user,
-            profileImageUrl: user.profileImageUrl || undefined,
-            lastLogin: user.lastLogin || undefined,
+            id: user.id,
+            username: user.username,
+            email: decryptEmail(user.email),
+            fullName: user.fullName,
+            role: user.role,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            avatarType: user.avatarType,
+            profileImageUrl: profileMeta.path ?? undefined,
+            profileImageStatus: profileMeta.status,
+            lastLogin: user.lastLogin ?? undefined,
+            lastActivity: user.lastActivity ?? undefined,
+            failedLoginAttempts: user.failedLoginAttempts,
+            lockedUntil: user.lockedUntil ?? undefined,
+            passwordChangedAt: user.passwordChangedAt ?? undefined,
+            mustChangePassword: user.mustChangePassword,
+            googleId: user.googleId,
+            facebookId: user.facebookId,
+            createdById: user.createdById,
+            updatedById: user.updatedById,
+            _count: user._count,
         };
     }
     /**
@@ -85,11 +166,12 @@ class UserService {
                 errors.username = 'Username already exists';
             }
         }
-        // Check email uniqueness if provided
+        // Check email uniqueness if provided (using hash for encrypted emails)
         if (email) {
+            const emailHash = (0, encryption_service_1.generateSearchHash)(email);
             const existingEmail = await prisma.userAccount.findFirst({
                 where: {
-                    email: email,
+                    emailHash,
                     ...(excludeUserId && { id: { not: excludeUserId } })
                 }
             });
@@ -115,34 +197,29 @@ class UserService {
         // Hash the password before storing it
         const passwordHash = await (0, password_1.hashPassword)(userData.password);
         try {
+            const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(userData.profileImageUrl, { fallbackToDefault: userData.profileImageUrl !== null });
+            const avatarType = mapStatusToAvatarType(profileMeta.status);
+            // Generate email hash for searchable lookups
+            const emailHash = (0, encryption_service_1.generateSearchHash)(userData.email);
             // Create user with default values as specified in the model
             const user = await prisma.userAccount.create({
                 data: {
                     username: userData.username,
                     email: userData.email,
+                    emailHash,
+                    cedula: userData.cedula,
                     passwordHash: passwordHash,
                     fullName: userData.fullName,
                     role: userData.role || client_1.UserRole.accountant, // Default role
-                    avatarType: client_1.AvatarType.generated, // Default avatar type
+                    avatarType,
+                    profileImageUrl: profileMeta.path,
                     photoRequested: true, // Default value
                     isActive: true, // Default value
                     passwordChangedAt: new Date(), // Set when password is created
                     // Self-referencing relationships
                     ...(requestContext?.userId && { createdById: requestContext.userId }),
                 },
-                select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                    fullName: true,
-                    role: true,
-                    isActive: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    profileImageUrl: true,
-                    avatarType: true,
-                    lastLogin: true,
-                },
+                select: USER_RESPONSE_SELECT,
             });
             // Log the user creation in the audit log
             await prisma.userAuditLog.create({
@@ -159,7 +236,9 @@ class UserService {
                         role: user.role,
                         isActive: user.isActive,
                         avatarType: user.avatarType,
-                        photoRequested: true
+                        photoRequested: true,
+                        profileImageUrl: profileMeta.path,
+                        profileImageStatus: profileMeta.status,
                     },
                     ipAddress: requestContext?.ipAddress,
                     userAgent: requestContext?.userAgent,
@@ -167,11 +246,7 @@ class UserService {
                     performedAt: new Date()
                 }
             });
-            return {
-                ...user,
-                profileImageUrl: user.profileImageUrl || undefined,
-                lastLogin: user.lastLogin || undefined,
-            };
+            return mapUserRecord(user);
         }
         catch (error) {
             // Log failed user creation attempt
@@ -212,31 +287,32 @@ class UserService {
                 throw new Error(`Credential validation failed: ${errorMessages}`);
             }
         }
+        const { profileImageUrl, email, ...otherFields } = userData;
+        const updateData = {
+            ...otherFields,
+            ...(requestContext?.userId && { updatedById: requestContext.userId }),
+        };
+        // If email is being updated, regenerate the hash
+        if (email) {
+            updateData.email = email;
+            updateData.emailHash = (0, encryption_service_1.generateSearchHash)(email);
+        }
+        if (profileImageUrl !== undefined) {
+            const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(profileImageUrl, { fallbackToDefault: profileImageUrl !== null });
+            updateData.profileImageUrl = profileMeta.path;
+            updateData.avatarType = mapStatusToAvatarType(profileMeta.status);
+            // Set photoUploadedAt when uploading a custom profile image
+            if (profileMeta.status === 'custom' && profileImageUrl) {
+                updateData.photoUploadedAt = new Date();
+                updateData.photoRequested = false;
+            }
+        }
         const user = await prisma.userAccount.update({
             where: { id },
-            data: {
-                ...userData,
-                ...(requestContext?.userId && { updatedById: requestContext.userId }),
-            },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                fullName: true,
-                role: true,
-                isActive: true,
-                createdAt: true,
-                updatedAt: true,
-                profileImageUrl: true,
-                avatarType: true,
-                lastLogin: true,
-            },
+            data: updateData,
+            select: USER_RESPONSE_SELECT,
         });
-        return {
-            ...user,
-            profileImageUrl: user.profileImageUrl || undefined,
-            lastLogin: user.lastLogin || undefined,
-        };
+        return mapUserRecord(user);
     }
     /**
      * Delete user (soft delete by setting isActive to false)
@@ -256,9 +332,11 @@ class UserService {
      */
     async authenticateUser(loginData, requestContext) {
         try {
-            // Find active user by email
+            // Generate hash of the email for lookup (emails are encrypted in DB)
+            const emailHash = (0, encryption_service_1.generateSearchHash)(loginData.email);
+            // Find active user by email hash
             const user = await prisma.userAccount.findFirst({
-                where: { email: loginData.email, isActive: true },
+                where: { emailHash, isActive: true },
             });
             // Do not reveal whether the email exists; log failed attempt without userId
             if (!user) {
@@ -375,6 +453,7 @@ class UserService {
                 console.error('Failed to log audit entry (login):', auditError);
             }
             // Return user data without sensitive information
+            const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(user.profileImageUrl);
             return {
                 id: user.id,
                 username: user.username,
@@ -384,7 +463,8 @@ class UserService {
                 isActive: user.isActive,
                 createdAt: user.createdAt,
                 updatedAt: user.updatedAt,
-                profileImageUrl: user.profileImageUrl || undefined,
+                profileImageUrl: profileMeta.path ?? undefined,
+                profileImageStatus: profileMeta.status,
                 avatarType: user.avatarType,
                 lastLogin: now,
             };
@@ -554,7 +634,157 @@ class UserService {
         }
         catch (error) {
             console.error('Error changing password:', error);
-            return false;
+            throw error;
+        }
+    }
+    /**
+     * Upload profile image for a user
+     */
+    async uploadProfileImage(userId, imagePath, requestContext) {
+        try {
+            const updatedUser = await this.updateUser(userId, { profileImageUrl: imagePath }, requestContext);
+            // Log audit entry for photo upload
+            try {
+                await prisma.userAuditLog.create({
+                    data: {
+                        userId,
+                        action: client_1.AuditAction.photo_upload,
+                        entityType: 'user',
+                        entityId: userId,
+                        newData: { profileImageUrl: imagePath },
+                        ipAddress: requestContext?.ipAddress,
+                        userAgent: requestContext?.userAgent,
+                        success: true,
+                        performedAt: new Date()
+                    }
+                });
+            }
+            catch (auditError) {
+                console.error('Failed to log audit entry:', auditError);
+            }
+            return updatedUser;
+        }
+        catch (error) {
+            console.error('Error uploading profile image:', error);
+            throw error;
+        }
+    }
+    /**
+     * Verify admin password and get user details with decrypted email
+     * Only administrators can access this functionality
+     */
+    async verifyAdminAndGetUserDetails(requestingUserId, password, targetUserId, requestContext) {
+        try {
+            // Get the requesting user to verify they are an admin
+            const requestingUser = await prisma.userAccount.findUnique({
+                where: { id: requestingUserId },
+                select: { id: true, role: true, passwordHash: true, isActive: true }
+            });
+            if (!requestingUser || !requestingUser.isActive) {
+                return { success: false, message: 'Usuario no encontrado', statusCode: 404 };
+            }
+            // Verify the user is an administrator
+            if (requestingUser.role !== client_1.UserRole.administrator) {
+                // Log unauthorized access attempt
+                await prisma.userAuditLog.create({
+                    data: {
+                        userId: requestingUserId,
+                        action: client_1.AuditAction.failed_login,
+                        entityType: 'user',
+                        entityId: targetUserId,
+                        ipAddress: requestContext?.ipAddress,
+                        userAgent: requestContext?.userAgent,
+                        success: false,
+                        errorMessage: 'unauthorized_role',
+                        performedAt: new Date()
+                    }
+                });
+                return { success: false, message: 'Acceso no autorizado', statusCode: 403 };
+            }
+            // Verify the admin's password
+            const isPasswordValid = await (0, password_1.comparePassword)(password, requestingUser.passwordHash);
+            if (!isPasswordValid) {
+                // Log failed password verification
+                await prisma.userAuditLog.create({
+                    data: {
+                        userId: requestingUserId,
+                        action: client_1.AuditAction.failed_login,
+                        entityType: 'user',
+                        entityId: targetUserId,
+                        ipAddress: requestContext?.ipAddress,
+                        userAgent: requestContext?.userAgent,
+                        success: false,
+                        errorMessage: 'invalid_password',
+                        performedAt: new Date()
+                    }
+                });
+                return { success: false, message: 'Contraseña incorrecta', statusCode: 401 };
+            }
+            // Get the target user details
+            const targetUser = await prisma.userAccount.findUnique({
+                where: { id: targetUserId },
+                select: USER_DETAILS_SELECT
+            });
+            if (!targetUser) {
+                return { success: false, message: 'Usuario objetivo no encontrado', statusCode: 404 };
+            }
+            // Decrypt the email
+            let decryptedEmail = targetUser.email;
+            try {
+                const encryptionService = (0, encryption_service_1.getEncryptionService)();
+                if (encryptionService.isEncrypted(targetUser.email)) {
+                    decryptedEmail = encryptionService.decrypt(targetUser.email, 'email', 'UserAccount');
+                }
+            }
+            catch (decryptError) {
+                console.error('Error decrypting email:', decryptError);
+                // Keep the encrypted email if decryption fails
+            }
+            // Log successful access
+            await prisma.userAuditLog.create({
+                data: {
+                    userId: requestingUserId,
+                    action: client_1.AuditAction.login,
+                    entityType: 'user',
+                    entityId: targetUserId,
+                    ipAddress: requestContext?.ipAddress,
+                    userAgent: requestContext?.userAgent,
+                    success: true,
+                    performedAt: new Date()
+                }
+            });
+            const profileMeta = (0, profile_image_util_1.resolveProfileImageMeta)(targetUser.profileImageUrl);
+            return {
+                success: true,
+                user: {
+                    id: targetUser.id,
+                    username: targetUser.username,
+                    email: decryptedEmail,
+                    fullName: targetUser.fullName,
+                    role: targetUser.role,
+                    isActive: targetUser.isActive,
+                    createdAt: targetUser.createdAt,
+                    updatedAt: targetUser.updatedAt,
+                    avatarType: targetUser.avatarType,
+                    profileImageUrl: profileMeta.path ?? undefined,
+                    profileImageStatus: profileMeta.status,
+                    lastLogin: targetUser.lastLogin ?? undefined,
+                    lastActivity: targetUser.lastActivity ?? undefined,
+                    failedLoginAttempts: targetUser.failedLoginAttempts,
+                    lockedUntil: targetUser.lockedUntil ?? undefined,
+                    passwordChangedAt: targetUser.passwordChangedAt ?? undefined,
+                    mustChangePassword: targetUser.mustChangePassword,
+                    googleId: targetUser.googleId,
+                    facebookId: targetUser.facebookId,
+                    createdById: targetUser.createdById,
+                    updatedById: targetUser.updatedById,
+                    _count: targetUser._count,
+                }
+            };
+        }
+        catch (error) {
+            console.error('Error verifying admin access:', error);
+            return { success: false, message: 'Error interno del servidor', statusCode: 500 };
         }
     }
 }

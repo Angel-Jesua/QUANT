@@ -19,8 +19,14 @@ function extractBearerToken(header?: string | null): string | null {
 
 export function authenticateJWT(req: Request, res: Response, next: NextFunction): void {
   try {
+    // Try to get token from Authorization header first, then from cookies
     const authHeader = req.headers['authorization'] || req.get('Authorization');
-    const token = extractBearerToken(typeof authHeader === 'string' ? authHeader : null);
+    let token = extractBearerToken(typeof authHeader === 'string' ? authHeader : null);
+    
+    // Fallback to cookie if no Authorization header
+    if (!token && req.cookies?.token) {
+      token = req.cookies.token;
+    }
 
     if (!token) {
       res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });

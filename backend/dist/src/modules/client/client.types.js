@@ -50,10 +50,6 @@ function isCreateClientInput(value) {
         if (t.length < 1 || t.length > 32)
             return false;
     }
-    if (v.contactName !== undefined && v.contactName !== null) {
-        if (!isString(v.contactName))
-            return false;
-    }
     if (v.email !== undefined && v.email !== null) {
         if (!isString(v.email))
             return false;
@@ -74,24 +70,10 @@ function isCreateClientInput(value) {
         if (!isString(v.city))
             return false;
     }
-    if (v.state !== undefined && v.state !== null) {
-        if (!isString(v.state))
-            return false;
-        const s = v.state.trim();
-        if (s.length < 1 || s.length > 8)
-            return false;
-    }
     if (v.country !== undefined) {
         if (!isString(v.country))
             return false;
         if (!isIsoAlpha2Upper(v.country))
-            return false;
-    }
-    if (v.postalCode !== undefined && v.postalCode !== null) {
-        if (!isString(v.postalCode))
-            return false;
-        const p = v.postalCode.trim();
-        if (p.length < 1 || p.length > 16)
             return false;
     }
     if (v.creditLimit !== undefined && v.creditLimit !== null) {
@@ -120,14 +102,11 @@ function isUpdateClientInput(value) {
         'clientCode',
         'taxId',
         'name',
-        'contactName',
         'email',
         'phone',
         'address',
         'city',
-        'state',
         'country',
-        'postalCode',
         'creditLimit',
         'currencyId',
         'isActive',
@@ -157,10 +136,6 @@ function isUpdateClientInput(value) {
         if (v.name.trim().length === 0)
             return false;
     }
-    if (v.contactName !== undefined) {
-        if (v.contactName !== null && !isString(v.contactName))
-            return false;
-    }
     if (v.email !== undefined) {
         if (v.email !== null && !isString(v.email))
             return false;
@@ -181,29 +156,11 @@ function isUpdateClientInput(value) {
         if (v.city !== null && !isString(v.city))
             return false;
     }
-    if (v.state !== undefined) {
-        if (v.state !== null && !isString(v.state))
-            return false;
-        if (isString(v.state)) {
-            const s = v.state.trim();
-            if (s.length < 1 || s.length > 8)
-                return false;
-        }
-    }
     if (v.country !== undefined) {
         if (!isString(v.country))
             return false;
         if (!isIsoAlpha2Upper(v.country))
             return false;
-    }
-    if (v.postalCode !== undefined) {
-        if (v.postalCode !== null && !isString(v.postalCode))
-            return false;
-        if (isString(v.postalCode)) {
-            const p = v.postalCode.trim();
-            if (p.length < 1 || p.length > 16)
-                return false;
-        }
     }
     if (v.creditLimit !== undefined) {
         if (v.creditLimit !== null && !isNonNegativeNumeric(v.creditLimit))

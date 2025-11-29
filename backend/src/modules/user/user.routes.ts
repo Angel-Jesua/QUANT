@@ -23,5 +23,6 @@ router.put('/:id', userController.updateUser.bind(userController));
 router.delete('/:id', userController.deleteUser.bind(userController));
 router.post('/:id/change-password', userController.changePassword.bind(userController));
 router.post('/:id/upload-image', uploadProfileImage.single('profileImage'), userController.uploadProfileImage.bind(userController));
+router.post('/:id/verify-access', userController.verifyAccessAndGetDetails.bind(userController));
  
 export { router as userRoutes };

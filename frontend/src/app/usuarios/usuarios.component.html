@@ -185,7 +185,6 @@
         <div class="users-table">
           <div class="table-header">
             <div class="header-cell nombre-col">Nombre</div>
-            <div class="header-cell email-col">Email</div>
             <div class="header-cell fecha-col">Fecha de Registro</div>
             <div class="header-cell ingreso-col">Último Ingreso</div>
             <div class="header-cell tiempo-col">Tiempo Activo</div>
@@ -196,7 +195,6 @@
           <div class="table-body" *ngIf="!isLoading(); else loading">
             <div class="table-row" *ngFor="let user of paginatedData().users; let i = index">
               <div class="table-cell nombre-col">{{ user.fullName }}</div>
-              <div class="table-cell email-col">{{ user.email }}</div>
               <div class="table-cell fecha-col">{{ formatDate(user.createdAt) }}</div>
               <div class="table-cell ingreso-col">{{ formatDateTime(user.lastLogin) }}</div>
               <div class="table-cell tiempo-col">{{ calculateActiveTime(user.lastLogin) }}</div>
@@ -212,7 +210,12 @@
               </div>
               <div class="table-cell acciones-col">
                 <div class="action-buttons">
-                  <button class="btn-action btn-view" (click)="viewUser(user)" [attr.aria-label]="'Ver detalles de ' + user.fullName" title="Ver">
+                  <button 
+                    *ngIf="isAdmin()" 
+                    class="btn-action btn-view" 
+                    (click)="openPasswordModal(user)" 
+                    [attr.aria-label]="'Ver detalles de ' + user.fullName" 
+                    title="Ver">
                     <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M2 24C2 24 10 8 24 8C38 8 46 24 46 24C46 24 38 40 24 40C10 40 2 24 2 24Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M24 30C27.3137 30 30 27.3137 30 24C30 20.6863 27.3137 18 24 18C20.6863 18 18 20.6863 18 24C18 27.3137 20.6863 30 24 30Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -289,6 +292,41 @@
         <button type="button" class="btn-cancel" (click)="closeCamera()">Cancelar</button>
         <button type="button" class="btn-capture" (click)="capturePhoto()" [disabled]="!!cameraError()">
           Capturar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Verification Modal -->
+  <div class="password-modal-overlay" *ngIf="showPasswordModal()">
+    <div class="password-modal">
+      <div class="password-modal-header">
+        <h3>Verificación de Seguridad</h3>
+        <button class="close-btn" (click)="closePasswordModal()">&times;</button>
+      </div>
+      
+      <div class="password-modal-content">
+        <p>Ingrese su contraseña para ver la información del usuario</p>
+        <div class="form-field">
+          <label for="adminPassword" class="field-label">Contraseña:</label>
+          <input
+            id="adminPassword"
+            type="password"
+            [(ngModel)]="adminPassword"
+            placeholder="Ingrese su contraseña"
+            class="field-input"
+            (keyup.enter)="verifyAndViewUser()"
+          />
+        </div>
+        <div class="error-message" *ngIf="passwordError()">
+          {{ passwordError() }}
+        </div>
+      </div>
+
+      <div class="password-modal-actions">
+        <button type="button" class="btn-cancel" (click)="closePasswordModal()">Cancelar</button>
+        <button type="button" class="btn-verify" (click)="verifyAndViewUser()" [disabled]="isVerifying()">
+          {{ isVerifying() ? 'Verificando...' : 'Verificar' }}
         </button>
       </div>
     </div>

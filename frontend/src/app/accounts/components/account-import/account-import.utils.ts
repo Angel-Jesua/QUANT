@@ -13,6 +13,8 @@ import {
   AccountType,
   PREDEFINED_PARENT_ACCOUNTS,
   ParentAccountOption,
+  resolveParentNameToCode,
+  ACCOUNT_TYPE_MAP,
 } from './account-import.types';
 
 /**
@@ -323,50 +325,31 @@ export function calculateIsDetail(
 /**
  * Normalize account type text to match system types.
  * Handles common variations and returns the canonical type.
+ * Uses the comprehensive ACCOUNT_TYPE_MAP for direct matches.
  */
 export function normalizeAccountType(typeText: string): AccountType | undefined {
   const cleaned = typeText.trim().toLowerCase();
   if (!cleaned) return undefined;
   
-  // Direct matches
-  const directMap: Record<string, AccountType> = {
-    'activo': 'Activo',
-    'activos': 'Activo',
-    'asset': 'Activo',
-    'assets': 'Activo',
-    'pasivo': 'Pasivo',
-    'pasivos': 'Pasivo',
-    'liability': 'Pasivo',
-    'liabilities': 'Pasivo',
-    'capital': 'Capital',
-    'patrimonio': 'Capital',
-    'equity': 'Capital',
-    'ingresos': 'Ingresos',
-    'ingreso': 'Ingresos',
-    'revenue': 'Ingresos',
-    'income': 'Ingresos',
-    'ventas': 'Ingresos',
-    'costos': 'Costos',
-    'costo': 'Costos',
-    'cost': 'Costos',
-    'costs': 'Costos',
-    'gastos': 'Gastos',
-    'gasto': 'Gastos',
-    'expense': 'Gastos',
-    'expenses': 'Gastos',
-  };
-  
-  if (directMap[cleaned]) {
-    return directMap[cleaned];
+  // Direct match from comprehensive map
+  if (ACCOUNT_TYPE_MAP[cleaned]) {
+    return ACCOUNT_TYPE_MAP[cleaned];
   }
   
-  // Partial matches
+  // Partial matches - order matters! Check more specific patterns first
+  if (cleaned.includes('cuentas por cobrar')) return 'Activo';
+  if (cleaned.includes('cuentas por pagar')) return 'Pasivo';
+  if (cleaned.includes('retenciones')) return 'Pasivo';
+  if (cleaned.includes('impuestos a pagar')) return 'Pasivo';
+  if (cleaned.includes('provisiones')) return 'Pasivo';
+  if (cleaned.includes('prestamos')) return 'Pasivo';
+  if (cleaned.includes('anticipos')) return 'Pasivo';
   if (cleaned.includes('activo')) return 'Activo';
   if (cleaned.includes('pasivo')) return 'Pasivo';
-  if (cleaned.includes('capital') || cleaned.includes('patrimonio')) return 'Capital';
-  if (cleaned.includes('ingreso') || cleaned.includes('venta')) return 'Ingresos';
+  if (cleaned.includes('capital') || cleaned.includes('patrimonio') || cleaned.includes('utilidades')) return 'Capital';
+  if (cleaned.includes('ingreso') || cleaned.includes('venta') || cleaned.includes('fee')) return 'Ingresos';
   if (cleaned.includes('costo')) return 'Costos';
-  if (cleaned.includes('gasto')) return 'Gastos';
+  if (cleaned.includes('gasto') || cleaned.includes('depreciacion')) return 'Gastos';
   
   return undefined;
 }
@@ -375,10 +358,10 @@ export function normalizeAccountType(typeText: string): AccountType | undefined 
  * Process raw Excel rows into import preview rows with all inferences applied.
  * Filters out predefined parent accounts (100-000-000, 110-000-000, etc.)
  * 
- * NEW: Automatic intelligent hierarchy detection
- * - Infers account type from account number if not provided
- * - Automatically assigns parent accounts based on number structure
- * - Validates against predefined system accounts
+ * ENHANCED: Supports explicit "Cuenta Padre" column from Excel
+ * - If parentAccount column is mapped and has value, uses that directly
+ * - Otherwise falls back to automatic intelligent hierarchy detection
+ * - Validates that parent account exists in import or predefined accounts
  */
 export function processExcelData(
   rawRows: ExcelRawRow[],
@@ -399,13 +382,32 @@ export function processExcelData(
   const defaultCurrency = currencies.find(c => c.code.toUpperCase() === defaultCurrencyCode.toUpperCase());
   const defaultCurrencyId = defaultCurrency?.id;
 
-  // First pass: collect all account numbers and count occurrences for duplicate detection
-  // Skip predefined parent accounts
+  // Build name-to-code map for resolving parent by name
+  const nameToCodeMap = new Map<string, string>();
+  
+  // Add predefined accounts to name map
+  const addPredefinedToMap = (account: ParentAccountOption) => {
+    nameToCodeMap.set(account.name.toUpperCase(), account.accountNumber);
+    if (account.children) {
+      account.children.forEach(addPredefinedToMap);
+    }
+  };
+  PREDEFINED_PARENT_ACCOUNTS.forEach(addPredefinedToMap);
+
+  // First pass: collect all account numbers, names, and count occurrences
   for (const row of rawRows) {
     const accountNumber = String(row[mapping.accountNumber] ?? '').trim().toUpperCase();
-    if (accountNumber && !predefinedAccountNumbers.has(accountNumber)) {
-      availableAccounts.add(accountNumber);
-      accountOccurrences.set(accountNumber, (accountOccurrences.get(accountNumber) ?? 0) + 1);
+    const accountName = String(row[mapping.name] ?? '').trim().toUpperCase();
+    
+    if (accountNumber) {
+      if (!predefinedAccountNumbers.has(accountNumber)) {
+        availableAccounts.add(accountNumber);
+        accountOccurrences.set(accountNumber, (accountOccurrences.get(accountNumber) ?? 0) + 1);
+      }
+      // Map name to code for parent resolution
+      if (accountName) {
+        nameToCodeMap.set(accountName, accountNumber);
+      }
     }
   }
 
@@ -417,7 +419,45 @@ export function processExcelData(
     }
   });
 
-  // Second pass: infer parent-child relationships using intelligent detection
+  // Helper to check if a string looks like an account code (XXX-XXX-XXX format)
+  const isAccountCodeFormat = (str: string): boolean => {
+    return /^\d{3}-\d{3}-\d{3}$/.test(str) || /^\d{9}$/.test(str.replace(/-/g, ''));
+  };
+
+  // Helper to resolve parent account from name or code
+  const resolveParentAccount = (parentValue: string): string | undefined => {
+    if (!parentValue) return undefined;
+    
+    const trimmed = parentValue.trim();
+    
+    // If it's already a code format, validate and return
+    if (isAccountCodeFormat(trimmed)) {
+      const upperCode = trimmed.toUpperCase();
+      const parentExistsInImport = availableAccounts.has(upperCode);
+      const parentIsPredefined = predefinedAccountNumbers.has(upperCode) || predefinedAccountsMap.has(upperCode);
+      if (parentExistsInImport || parentIsPredefined) {
+        return upperCode;
+      }
+    }
+    
+    // Try to resolve by name using the predefined mapping
+    const resolvedFromMap = resolveParentNameToCode(trimmed);
+    if (resolvedFromMap) {
+      return resolvedFromMap;
+    }
+    
+    // Try to find by name in the import data
+    const upperName = trimmed.toUpperCase();
+    const resolvedCode = nameToCodeMap.get(upperName);
+    if (resolvedCode) {
+      return resolvedCode;
+    }
+    
+    return undefined;
+  };
+
+  // Second pass: determine parent-child relationships
+  // Priority: 1) Explicit code/name from Excel, 2) Automatic detection by account number structure
   const parentNumbers = new Set<string>();
   const accountParentMap = new Map<string, string | undefined>();
 
@@ -425,11 +465,26 @@ export function processExcelData(
     const accountNumber = String(row[mapping.accountNumber] ?? '').trim().toUpperCase();
     if (!accountNumber || predefinedAccountNumbers.has(accountNumber)) continue;
 
-    // Use the new intelligent parent detection
-    const parent = findBestParentAccount(accountNumber, availableAccounts, predefinedAccountsMap);
-    accountParentMap.set(accountNumber, parent);
-    if (parent) {
-      parentNumbers.add(parent);
+    let parentAccountNumber: string | undefined;
+    
+    // Check if explicit parent account column is mapped and has value
+    if (mapping.parentAccount) {
+      const explicitParent = String(row[mapping.parentAccount] ?? '').trim();
+      
+      if (explicitParent) {
+        // Use the helper to resolve parent (handles both codes and names)
+        parentAccountNumber = resolveParentAccount(explicitParent);
+      }
+    }
+    
+    // If no explicit parent found, fall back to automatic detection by account number structure
+    if (!parentAccountNumber) {
+      parentAccountNumber = findBestParentAccount(accountNumber, availableAccounts, predefinedAccountsMap);
+    }
+    
+    accountParentMap.set(accountNumber, parentAccountNumber);
+    if (parentAccountNumber) {
+      parentNumbers.add(parentAccountNumber);
     }
   }
 
@@ -500,9 +555,9 @@ export function processExcelData(
         ? `Tipo de cuenta no reconocido: "${typeRaw}" (esperado: Activo, Pasivo, Capital, Ingresos, Costos, Gastos)`
         : invalidCurrency
           ? `Moneda no reconocida: "${currencyRaw}"`
-          : missingCurrency
-            ? `Moneda requerida para cuentas de detalle`
-            : undefined;
+            : missingCurrency
+              ? `Moneda requerida para cuentas de detalle`
+              : undefined;
 
     // For grouping accounts without currency, use the first available currency as default
     const fallbackCurrencyId = currencies.length > 0 ? currencies[0].id : 1;
@@ -542,14 +597,28 @@ export function processExcelData(
 export function convertToImportItems(previewRows: ImportPreviewRow[]): BulkImportAccountItem[] {
   return previewRows
     .filter((row) => !row.hasError)
-    .map((row) => ({
-      accountNumber: row.accountNumber,
-      name: row.name,
-      type: row.type,
-      currencyId: row.currencyId,
-      description: row.description,
-      parentAccountNumber: row.parentAccountNumber,
-      isDetail: row.isDetail,
-      isActive: true,
-    }));
+    .map((row) => {
+      const item: BulkImportAccountItem = {
+        accountNumber: row.accountNumber,
+        name: row.name,
+        type: row.type,
+        description: row.description,
+        parentAccountNumber: row.parentAccountNumber,
+        isDetail: row.isDetail,
+        isActive: true,
+      };
+      
+      // Solo incluir currency para cuentas de detalle
+      if (row.isDetail) {
+        if (row.currencyId) {
+          item.currencyId = row.currencyId;
+        }
+        // Mapear código de moneda a enum
+        if (row.currencyCode === 'NIO' || row.currencyCode === 'USD') {
+          item.currency = row.currencyCode;
+        }
+      }
+      
+      return item;
+    });
 }

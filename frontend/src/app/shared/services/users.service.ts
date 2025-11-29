@@ -114,4 +114,8 @@ export class UsersService {
       tap(() => this.getAllUsers().subscribe())
     );
   }
+
+  verifyPasswordAndGetDetails(userId: number, password: string): Observable<UserDetails> {
+    return this.http.post<UserDetails>(`${this.apiUrl}/${userId}/verify-access`, { password });
+  }
 }

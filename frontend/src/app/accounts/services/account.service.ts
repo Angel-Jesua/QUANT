@@ -24,7 +24,8 @@ export class AccountService {
   private apiUrl = `${API_BASE_URL}/accounts`;
 
   getAccounts(): Observable<Account[]> {
-    return this.http.get<PaginatedResponse<Account>>(this.apiUrl).pipe(
+    // Cargar todas las cuentas (pageSize alto) para construir la jerarquía correctamente
+    return this.http.get<PaginatedResponse<Account>>(`${this.apiUrl}?pageSize=1000`).pipe(
       map(response => response.data || [])
     );
   }

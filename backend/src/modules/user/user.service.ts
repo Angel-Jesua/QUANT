@@ -4,6 +4,7 @@ import { hashPassword, comparePassword } from '../../utils/password';
 import { validateRegisterUser } from './user.validation';
 import jwt from 'jsonwebtoken';
 import { resolveProfileImageMeta } from './profile-image.util';
+import { generateSearchHash, getEncryptionService } from '../../utils/encryption.service';
 
 const prisma = new PrismaClient();
 
@@ -53,6 +54,19 @@ function mapStatusToAvatarType(status: ProfileImageStatus): AvatarType {
   return status === 'custom' ? AvatarType.uploaded : AvatarType.generated;
 }
 
+function decryptEmail(encryptedEmail: string): string {
+  try {
+    const encryptionService = getEncryptionService();
+    if (encryptionService.isEncrypted(encryptedEmail)) {
+      return encryptionService.decrypt(encryptedEmail, 'email', 'UserAccount');
+    }
+    return encryptedEmail;
+  } catch (error) {
+    console.error('Error decrypting email:', error);
+    return encryptedEmail;
+  }
+}
+
 function mapUserRecord(user: SelectedUser | null): IUserResponse | null {
   if (!user) {
     return null;
@@ -63,7 +77,7 @@ function mapUserRecord(user: SelectedUser | null): IUserResponse | null {
   return {
     id: user.id,
     username: user.username,
-    email: user.email,
+    email: decryptEmail(user.email),
     cedula: user.cedula ?? undefined,
     fullName: user.fullName,
     role: user.role,
@@ -121,7 +135,7 @@ export class UserService {
     return {
       id: user.id,
       username: user.username,
-      email: user.email,
+      email: decryptEmail(user.email),
       fullName: user.fullName,
       role: user.role,
       isActive: user.isActive,
@@ -172,11 +186,12 @@ export class UserService {
       }
     }
     
-    // Check email uniqueness if provided
+    // Check email uniqueness if provided (using hash for encrypted emails)
     if (email) {
+      const emailHash = generateSearchHash(email);
       const existingEmail = await prisma.userAccount.findFirst({
         where: {
-          email: email,
+          emailHash,
           ...(excludeUserId && { id: { not: excludeUserId } })
         }
       });
@@ -214,11 +229,15 @@ export class UserService {
       );
       const avatarType = mapStatusToAvatarType(profileMeta.status);
 
+      // Generate email hash for searchable lookups
+      const emailHash = generateSearchHash(userData.email);
+      
       // Create user with default values as specified in the model
       const user = await prisma.userAccount.create({
         data: {
           username: userData.username,
           email: userData.email,
+          emailHash,
           cedula: userData.cedula,
           passwordHash: passwordHash,
           fullName: userData.fullName,
@@ -311,11 +330,17 @@ export class UserService {
       }
     }
     
-    const { profileImageUrl, ...otherFields } = userData;
+    const { profileImageUrl, email, ...otherFields } = userData;
     const updateData: Prisma.UserAccountUpdateInput = {
       ...otherFields,
       ...(requestContext?.userId && { updatedById: requestContext.userId }),
     };
+    
+    // If email is being updated, regenerate the hash
+    if (email) {
+      updateData.email = email;
+      updateData.emailHash = generateSearchHash(email);
+    }
 
     if (profileImageUrl !== undefined) {
       const profileMeta = resolveProfileImageMeta(
@@ -367,9 +392,12 @@ export class UserService {
     requestContext?: { ipAddress?: string; userAgent?: string }
   ): Promise<IUserResponse | null> {
     try {
-      // Find active user by email
+      // Generate hash of the email for lookup (emails are encrypted in DB)
+      const emailHash = generateSearchHash(loginData.email);
+      
+      // Find active user by email hash
       const user = await prisma.userAccount.findFirst({
-        where: { email: loginData.email, isActive: true },
+        where: { emailHash, isActive: true },
       });
 
       // Do not reveal whether the email exists; log failed attempt without userId
@@ -742,6 +770,137 @@ export class UserService {
     } catch (error) {
       console.error('Error uploading profile image:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Verify admin password and get user details with decrypted email
+   * Only administrators can access this functionality
+   */
+  async verifyAdminAndGetUserDetails(
+    requestingUserId: number,
+    password: string,
+    targetUserId: number,
+    requestContext?: { ipAddress?: string; userAgent?: string }
+  ): Promise<{ success: boolean; message?: string; statusCode?: number; user?: IUserDetailsResponse }> {
+    try {
+      // Get the requesting user to verify they are an admin
+      const requestingUser = await prisma.userAccount.findUnique({
+        where: { id: requestingUserId },
+        select: { id: true, role: true, passwordHash: true, isActive: true }
+      });
+
+      if (!requestingUser || !requestingUser.isActive) {
+        return { success: false, message: 'Usuario no encontrado', statusCode: 404 };
+      }
+
+      // Verify the user is an administrator
+      if (requestingUser.role !== UserRole.administrator) {
+        // Log unauthorized access attempt
+        await prisma.userAuditLog.create({
+          data: {
+            userId: requestingUserId,
+            action: AuditAction.failed_login,
+            entityType: 'user',
+            entityId: targetUserId,
+            ipAddress: requestContext?.ipAddress,
+            userAgent: requestContext?.userAgent,
+            success: false,
+            errorMessage: 'unauthorized_role',
+            performedAt: new Date()
+          }
+        });
+        return { success: false, message: 'Acceso no autorizado', statusCode: 403 };
+      }
+
+      // Verify the admin's password
+      const isPasswordValid = await comparePassword(password, requestingUser.passwordHash);
+      if (!isPasswordValid) {
+        // Log failed password verification
+        await prisma.userAuditLog.create({
+          data: {
+            userId: requestingUserId,
+            action: AuditAction.failed_login,
+            entityType: 'user',
+            entityId: targetUserId,
+            ipAddress: requestContext?.ipAddress,
+            userAgent: requestContext?.userAgent,
+            success: false,
+            errorMessage: 'invalid_password',
+            performedAt: new Date()
+          }
+        });
+        return { success: false, message: 'Contraseña incorrecta', statusCode: 401 };
+      }
+
+      // Get the target user details
+      const targetUser = await prisma.userAccount.findUnique({
+        where: { id: targetUserId },
+        select: USER_DETAILS_SELECT
+      });
+
+      if (!targetUser) {
+        return { success: false, message: 'Usuario objetivo no encontrado', statusCode: 404 };
+      }
+
+      // Decrypt the email
+      let decryptedEmail = targetUser.email;
+      try {
+        const encryptionService = getEncryptionService();
+        if (encryptionService.isEncrypted(targetUser.email)) {
+          decryptedEmail = encryptionService.decrypt(targetUser.email, 'email', 'UserAccount');
+        }
+      } catch (decryptError) {
+        console.error('Error decrypting email:', decryptError);
+        // Keep the encrypted email if decryption fails
+      }
+
+      // Log successful access
+      await prisma.userAuditLog.create({
+        data: {
+          userId: requestingUserId,
+          action: AuditAction.login,
+          entityType: 'user',
+          entityId: targetUserId,
+          ipAddress: requestContext?.ipAddress,
+          userAgent: requestContext?.userAgent,
+          success: true,
+          performedAt: new Date()
+        }
+      });
+
+      const profileMeta = resolveProfileImageMeta(targetUser.profileImageUrl);
+
+      return {
+        success: true,
+        user: {
+          id: targetUser.id,
+          username: targetUser.username,
+          email: decryptedEmail,
+          fullName: targetUser.fullName,
+          role: targetUser.role,
+          isActive: targetUser.isActive,
+          createdAt: targetUser.createdAt,
+          updatedAt: targetUser.updatedAt,
+          avatarType: targetUser.avatarType,
+          profileImageUrl: profileMeta.path ?? undefined,
+          profileImageStatus: profileMeta.status,
+          lastLogin: targetUser.lastLogin ?? undefined,
+          lastActivity: targetUser.lastActivity ?? undefined,
+          failedLoginAttempts: targetUser.failedLoginAttempts,
+          lockedUntil: targetUser.lockedUntil ?? undefined,
+          passwordChangedAt: targetUser.passwordChangedAt ?? undefined,
+          mustChangePassword: targetUser.mustChangePassword,
+          googleId: targetUser.googleId,
+          facebookId: targetUser.facebookId,
+          createdById: targetUser.createdById,
+          updatedById: targetUser.updatedById,
+          _count: targetUser._count,
+        }
+      };
+    } catch (error) {
+      console.error('Error verifying admin access:', error);
+      return { success: false, message: 'Error interno del servidor', statusCode: 500 };
     }
   }
 }

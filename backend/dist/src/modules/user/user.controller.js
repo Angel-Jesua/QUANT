@@ -11,6 +11,9 @@ class UserController {
     constructor() {
         this.userService = new user_service_1.UserService();
     }
+    static getRequestUserId(req) {
+        return req.userId;
+    }
     /**
      * Get all users
      */
@@ -60,6 +63,59 @@ class UserController {
                 userAgent: req.get('User-Agent'),
             });
             res.status(500).json({ error: 'Failed to fetch user' });
+        }
+    }
+    /**
+     * Get user details by ID
+     */
+    async getUserDetails(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = parseInt(id, 10);
+            if (isNaN(userId)) {
+                res.status(400).json({ error: 'Invalid user ID' });
+                return;
+            }
+            const user = await this.userService.getUserDetails(userId);
+            if (!user) {
+                res.status(404).json({ error: 'User not found' });
+                return;
+            }
+            res.json(user);
+        }
+        catch (error) {
+            (0, error_1.logErrorContext)('user.getDetails.error', error, { id: req.params.id });
+            await (0, error_1.logAuditError)({
+                action: client_1.AuditAction.update,
+                entityType: 'user',
+                entityId: parseInt(req.params.id, 10),
+                errorKey: 'fetch_user_details_error',
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+            });
+            res.status(500).json({ error: 'Failed to fetch user details' });
+        }
+    }
+    /**
+     * Get authenticated user profile using the JWT context
+     */
+    async getCurrentUser(req, res) {
+        try {
+            const userId = UserController.getRequestUserId(req);
+            if (!userId) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+            const user = await this.userService.getUserById(userId);
+            if (!user) {
+                res.status(404).json({ error: 'User not found' });
+                return;
+            }
+            res.json(user);
+        }
+        catch (error) {
+            (0, error_1.logErrorContext)('user.me.error', error, { userId: UserController.getRequestUserId(req) });
+            res.status(500).json({ error: 'Failed to fetch user profile' });
         }
     }
     /**
@@ -267,13 +323,23 @@ class UserController {
                         role: String(user.role),
                         avatarType: String(user.avatarType),
                         profileImageUrl: user.profileImageUrl ?? null,
+                        profileImageStatus: user.profileImageStatus,
                     },
                     token: auth.token,
                     expiresIn: auth.expiresIn,
                     message: 'Inicio de sesión exitoso',
                 };
+                // Set HttpOnly cookie
+                res.cookie('token', auth.token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                    maxAge: 24 * 60 * 60 * 1000 // 1 day
+                });
                 // Do not log the token
-                res.status(200).json(responsePayload);
+                // Remove token from response body
+                const { token, ...safeResponse } = responsePayload;
+                res.status(200).json(safeResponse);
             }
             catch (err) {
                 if (err instanceof jwt_1.JWTConfigError) {
@@ -315,6 +381,57 @@ class UserController {
                 userAgent: req.get('User-Agent'),
             }, { logTag: 'login.exception', error });
         }
+    }
+    /**
+     * Get current user (Me)
+     */
+    async me(req, res) {
+        try {
+            const token = req.cookies.token;
+            if (!token) {
+                res.status(401).json({ error: 'Not authenticated' });
+                return;
+            }
+            try {
+                const claims = (0, jwt_1.verifyAccessToken)(token);
+                const user = await this.userService.getUserDetails(Number(claims.id));
+                if (!user) {
+                    res.status(401).json({ error: 'User not found' });
+                    return;
+                }
+                res.json({
+                    success: true,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        fullName: user.fullName,
+                        role: String(user.role),
+                        avatarType: String(user.avatarType),
+                        profileImageUrl: user.profileImageUrl ?? null,
+                        profileImageStatus: user.profileImageStatus,
+                    }
+                });
+            }
+            catch (e) {
+                res.status(401).json({ error: 'Invalid token' });
+            }
+        }
+        catch (error) {
+            (0, error_1.logErrorContext)('user.me.error', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+    /**
+     * Logout user
+     */
+    async logout(req, res) {
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+        });
+        res.json({ success: true, message: 'Logged out successfully' });
     }
     /**
      * Change user password
@@ -407,6 +524,96 @@ class UserController {
                 }
             };
             res.status(500).json(response);
+        }
+    }
+    /**
+     * Upload profile image for a user
+     */
+    async uploadProfileImage(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = parseInt(id, 10);
+            if (isNaN(userId)) {
+                res.status(400).json({ error: 'Invalid user ID' });
+                return;
+            }
+            if (!req.file) {
+                res.status(400).json({ error: 'No image file provided' });
+                return;
+            }
+            // Get the relative path for storage
+            const imagePath = `images/profile/${req.file.filename}`;
+            const requestContext = {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+                userId: UserController.getRequestUserId(req)
+            };
+            const updatedUser = await this.userService.uploadProfileImage(userId, imagePath, requestContext);
+            if (!updatedUser) {
+                res.status(404).json({ error: 'User not found' });
+                return;
+            }
+            res.json(updatedUser);
+        }
+        catch (error) {
+            const idParam = parseInt(req.params.id, 10);
+            (0, error_1.logErrorContext)('user.upload_image.error', error, { id: idParam });
+            await (0, error_1.logAuditError)({
+                action: client_1.AuditAction.photo_upload,
+                entityType: 'user',
+                entityId: isNaN(idParam) ? undefined : idParam,
+                errorKey: 'upload_image_error',
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+            });
+            res.status(500).json({ error: 'Failed to upload profile image' });
+        }
+    }
+    /**
+     * Verify admin password and get user details with decrypted email
+     * Only administrators can access this endpoint
+     */
+    async verifyAccessAndGetDetails(req, res) {
+        try {
+            const { id } = req.params;
+            const { password } = req.body;
+            const targetUserId = parseInt(id, 10);
+            const requestingUserId = UserController.getRequestUserId(req);
+            if (isNaN(targetUserId)) {
+                res.status(400).json({ error: 'Invalid user ID' });
+                return;
+            }
+            if (!password) {
+                res.status(400).json({ error: 'Password is required' });
+                return;
+            }
+            if (!requestingUserId) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+            const requestContext = {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+            };
+            const result = await this.userService.verifyAdminAndGetUserDetails(requestingUserId, password, targetUserId, requestContext);
+            if (!result.success) {
+                res.status(result.statusCode || 403).json({ message: result.message });
+                return;
+            }
+            res.json(result.user);
+        }
+        catch (error) {
+            const idParam = parseInt(req.params.id, 10);
+            (0, error_1.logErrorContext)('user.verify_access.error', error, { id: idParam });
+            await (0, error_1.logAuditError)({
+                action: client_1.AuditAction.update,
+                entityType: 'user',
+                entityId: isNaN(idParam) ? undefined : idParam,
+                errorKey: 'verify_access_error',
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+            });
+            res.status(500).json({ error: 'Failed to verify access' });
         }
     }
 }

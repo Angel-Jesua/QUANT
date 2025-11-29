@@ -608,3 +608,49 @@ function parseOptionalPositiveInt(input: unknown): number | undefined {
   if (Number.isNaN(v) || v <= 0) return undefined;
   return Math.floor(v);
 }
+
+export class ClientVerifyController {
+  private clientService = new ClientService();
+
+  /**
+   * Verify user password and get client details with decrypted email/phone.
+   * POST /clients/:id/verify-details
+   * Body: { password: string }
+   */
+  async verifyAndGetDetails(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.userId ?? req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
+      const clientId = Number.parseInt(req.params.id, 10);
+      if (Number.isNaN(clientId) || clientId <= 0) {
+        res.status(400).json({ success: false, message: 'ID de cliente inválido' });
+        return;
+      }
+
+      const { password } = req.body;
+      if (!password || typeof password !== 'string') {
+        res.status(400).json({ success: false, message: 'Contraseña requerida' });
+        return;
+      }
+
+      const result = await this.clientService.verifyAndGetClientDetails(
+        userId,
+        password,
+        clientId,
+        {
+          ipAddress: req.ip || (req as any).connection?.remoteAddress,
+          userAgent: req.get('User-Agent')
+        }
+      );
+
+      res.status(result.statusCode || (result.success ? 200 : 400)).json(result);
+    } catch (error) {
+      console.error('Error in verifyAndGetDetails:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  }
+}

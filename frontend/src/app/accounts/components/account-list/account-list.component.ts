@@ -1,12 +1,17 @@
 import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AccountService } from '../../services/account.service';
 import { Account, AccountTreeNode } from '../../models/account.model';
+
+/** Tipos de cuenta disponibles para filtrar */
+const ACCOUNT_TYPES = ['Activo', 'Pasivo', 'Capital', 'Ingresos', 'Gastos', 'Costos'] as const;
+type AccountTypeFilter = typeof ACCOUNT_TYPES[number] | '';
 
 @Component({
   selector: 'app-account-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './account-list.component.html',
   styleUrls: ['./account-list.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -22,6 +27,60 @@ export class AccountListComponent implements OnInit {
   
   /** Set of expanded account IDs */
   expandedIds = signal<Set<number>>(new Set());
+  
+  /** Filtro por tipo de cuenta */
+  typeFilter = signal<AccountTypeFilter>('');
+  
+  /** Filtro por texto de búsqueda */
+  searchFilter = signal<string>('');
+  
+  /** Mostrar solo cuentas activas */
+  showActiveOnly = signal<boolean>(true);
+  
+  /** Lista de tipos de cuenta para el dropdown */
+  accountTypes = ACCOUNT_TYPES;
+  
+  /** Árbol filtrado según los criterios */
+  filteredTree = computed(() => {
+    const tree = this.accountTree();
+    const typeFilter = this.typeFilter();
+    const searchFilter = this.searchFilter().toLowerCase().trim();
+    const activeOnly = this.showActiveOnly();
+    
+    if (!typeFilter && !searchFilter && !activeOnly) {
+      return tree;
+    }
+    
+    // Filtrar recursivamente manteniendo la jerarquía
+    const filterNodes = (nodes: AccountTreeNode[]): AccountTreeNode[] => {
+      return nodes
+        .map(node => {
+          const filteredChildren = filterNodes(node.children);
+          const matchesType = !typeFilter || node.type === typeFilter;
+          const matchesSearch = !searchFilter || 
+            node.code.toLowerCase().includes(searchFilter) ||
+            node.name.toLowerCase().includes(searchFilter) ||
+            (node.detailType?.toLowerCase().includes(searchFilter) ?? false);
+          const matchesActive = !activeOnly || node.isActive;
+          
+          // Incluir si coincide o tiene hijos que coinciden
+          const hasMatchingChildren = filteredChildren.length > 0;
+          const matchesSelf = matchesType && matchesSearch && matchesActive;
+          
+          if (matchesSelf || hasMatchingChildren) {
+            return {
+              ...node,
+              children: filteredChildren,
+              hasChildren: filteredChildren.length > 0
+            };
+          }
+          return null;
+        })
+        .filter((node): node is AccountTreeNode => node !== null);
+    };
+    
+    return filterNodes(tree);
+  });
   
   /** Flattened visible rows for display */
   visibleRows = computed(() => {
@@ -39,12 +98,40 @@ export class AccountListComponent implements OnInit {
       }
     };
     
-    flatten(this.accountTree());
+    flatten(this.filteredTree());
     return result;
   });
+  
+  /** Contador de cuentas visibles */
+  visibleCount = computed(() => this.visibleRows().length);
+  
+  /** Contador total de cuentas */
+  totalCount = computed(() => this.rawAccounts().length);
 
   ngOnInit(): void {
     this.loadAccounts();
+  }
+  
+  /** Actualizar filtro de tipo */
+  onTypeFilterChange(type: string): void {
+    this.typeFilter.set(type as AccountTypeFilter);
+  }
+  
+  /** Actualizar filtro de búsqueda */
+  onSearchChange(search: string): void {
+    this.searchFilter.set(search);
+  }
+  
+  /** Toggle mostrar solo activas */
+  toggleActiveOnly(): void {
+    this.showActiveOnly.update(v => !v);
+  }
+  
+  /** Limpiar todos los filtros */
+  clearFilters(): void {
+    this.typeFilter.set('');
+    this.searchFilter.set('');
+    this.showActiveOnly.set(true);
   }
 
   loadAccounts() {
@@ -61,22 +148,28 @@ export class AccountListComponent implements OnInit {
   private buildAccountTree(accounts: Account[]): AccountTreeNode[] {
     // Create a map for quick lookup
     const accountMap = new Map<number, AccountTreeNode>();
+    const codeMap = new Map<string, AccountTreeNode>();
     const rootNodes: AccountTreeNode[] = [];
 
     // First pass: create all nodes
     for (const account of accounts) {
+      // Usar code o accountNumber (compatibilidad)
+      const code = account.code || account.accountNumber;
       const node: AccountTreeNode = {
         ...account,
+        code,
         children: [],
-        level: this.calculateLevel(account.accountNumber),
+        level: this.calculateLevel(code),
         isExpanded: false,
         hasChildren: false,
       };
       accountMap.set(account.id, node);
+      codeMap.set(code, node);
     }
 
     // Second pass: build parent-child relationships
     for (const account of accounts) {
+      const code = account.code || account.accountNumber;
       const node = accountMap.get(account.id)!;
       
       if (account.parentAccountId && accountMap.has(account.parentAccountId)) {
@@ -85,19 +178,14 @@ export class AccountListComponent implements OnInit {
         parent.hasChildren = true;
       } else {
         // Check if this is a root account by code structure
-        const parentCode = this.findParentCode(account.accountNumber);
+        const parentCode = this.findParentCode(code);
         let foundParent = false;
         
-        if (parentCode) {
-          // Find parent by account number
-          for (const [, potentialParent] of accountMap) {
-            if (potentialParent.accountNumber === parentCode) {
-              potentialParent.children.push(node);
-              potentialParent.hasChildren = true;
-              foundParent = true;
-              break;
-            }
-          }
+        if (parentCode && codeMap.has(parentCode)) {
+          const parent = codeMap.get(parentCode)!;
+          parent.children.push(node);
+          parent.hasChildren = true;
+          foundParent = true;
         }
         
         if (!foundParent) {
@@ -106,9 +194,9 @@ export class AccountListComponent implements OnInit {
       }
     }
 
-    // Sort children by account number at each level
+    // Sort children by code at each level
     const sortChildren = (nodes: AccountTreeNode[]) => {
-      nodes.sort((a, b) => a.accountNumber.localeCompare(b.accountNumber));
+      nodes.sort((a, b) => a.code.localeCompare(b.code));
       for (const node of nodes) {
         if (node.children.length > 0) {
           sortChildren(node.children);

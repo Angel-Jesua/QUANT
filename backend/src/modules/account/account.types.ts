@@ -1,20 +1,23 @@
 // Account module type definitions
 // Aligns with Prisma Account model and API response shapes
 
-import { AccountType, Prisma } from '@prisma/client';
+import { AccountType, AccountCurrency, Prisma } from '@prisma/client';
 
 /**
  * Internal Account entity shape as returned by Prisma (service layer)
  */
 export interface IAccount {
   id: number;
-  accountNumber: string;        // Unique account identifier (1-20 chars)
+  code: string;                 // Código de cuenta formato XXX-XXX-XXX
+  accountNumber: string;        // Alias para compatibilidad (mismo valor que code)
   name: string;                 // Display name
   description?: string | null;  // Optional description
-  type: AccountType;            // Domain classification
-  currencyId: number;           // FK to Currency
+  type: AccountType;            // Domain classification (Activo, Pasivo, Capital, etc.)
+  detailType?: string | null;   // Tipo de detalle (Efectivo, Banco, Cliente, etc.)
+  currencyId?: number | null;   // FK to Currency (solo para cuentas de detalle)
+  currency?: AccountCurrency | null; // NIO o USD para cuentas de detalle
   parentAccountId?: number | null; // Optional parent account
-  isDetail: boolean;            // true when leaf (no children)
+  isDetail: boolean;            // true = cuenta de detalle, false = cuenta de resumen
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -26,8 +29,11 @@ export interface IAccount {
  * API response shape for Account.
  * Mirrors internal entity, normalizing nullables to undefined where appropriate.
  */
-export interface IAccountResponse extends Omit<IAccount, 'description' | 'parentAccountId' | 'updatedById'> {
+export interface IAccountResponse extends Omit<IAccount, 'description' | 'parentAccountId' | 'updatedById' | 'currencyId' | 'detailType' | 'currency'> {
   description?: string;
+  detailType?: string;
+  currencyId?: number;
+  currency?: AccountCurrency;
   parentAccountId?: number;
   updatedById?: number;
 }
@@ -36,10 +42,13 @@ export interface IAccountResponse extends Omit<IAccount, 'description' | 'parent
  * DTO for creating an account
  */
 export interface ICreateAccount {
-  accountNumber: string;
+  code: string;                 // Código formato XXX-XXX-XXX
+  accountNumber?: string;       // Alias opcional (se usa code si no se proporciona)
   name: string;
   type: AccountType;
-  currencyId: number;
+  detailType?: string;          // Tipo de detalle opcional
+  currencyId?: number;          // Solo requerido para cuentas de detalle
+  currency?: AccountCurrency;   // NIO o USD para cuentas de detalle
   description?: string;
   parentAccountId?: number;
   isDetail?: boolean;
@@ -48,13 +57,15 @@ export interface ICreateAccount {
 
 /**
  * DTO for updating an account (partial)
- * Note: accountNumber is immutable and cannot be changed via update.
+ * Note: code/accountNumber es inmutable y no puede cambiarse via update.
  */
 export interface IUpdateAccount {
   name?: string;
   description?: string | null;
   type?: AccountType;
-  currencyId?: number;
+  detailType?: string | null;
+  currencyId?: number | null;
+  currency?: AccountCurrency | null;
   parentAccountId?: number | null;
   isDetail?: boolean;
   isActive?: boolean;
@@ -128,10 +139,12 @@ export interface AccountTree extends IAccountResponse {
  * Uses parentAccountNumber (text) instead of parentAccountId for hierarchy resolution.
  */
 export interface BulkImportAccountItem {
-  accountNumber: string;
+  accountNumber: string;        // Código formato XXX-XXX-XXX (se usa como code)
   name: string;
   type: AccountType;
-  currencyId: number;
+  detailType?: string;          // Tipo de detalle opcional
+  currencyId?: number;          // Solo requerido para cuentas de detalle
+  currency?: string;            // NIO o USD para cuentas de detalle
   description?: string;
   parentAccountNumber?: string; // Resolved to parentAccountId during import
   isDetail?: boolean;

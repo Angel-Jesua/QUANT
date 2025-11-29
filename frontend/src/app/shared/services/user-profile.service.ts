@@ -48,7 +48,7 @@ export class UserProfileService {
       return of(this.profileSubject.value);
     }
 
-    return this.http.get<UserProfileDto>(this.endpoint).pipe(
+    return this.http.get<UserProfileDto>(this.endpoint, { withCredentials: true }).pipe(
       map((dto) => this.mapDto(dto)),
       tap((profile) => this.profileSubject.next(profile)),
       catchError((error) => {

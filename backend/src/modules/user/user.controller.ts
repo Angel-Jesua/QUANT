@@ -636,4 +636,63 @@ export class UserController {
       res.status(500).json({ error: 'Failed to upload profile image' });
     }
   }
+
+  /**
+   * Verify admin password and get user details with decrypted email
+   * Only administrators can access this endpoint
+   */
+  async verifyAccessAndGetDetails(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { password } = req.body;
+      const targetUserId = parseInt(id, 10);
+      const requestingUserId = UserController.getRequestUserId(req);
+
+      if (isNaN(targetUserId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      if (!password) {
+        res.status(400).json({ error: 'Password is required' });
+        return;
+      }
+
+      if (!requestingUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const requestContext = {
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      };
+
+      const result = await this.userService.verifyAdminAndGetUserDetails(
+        requestingUserId,
+        password,
+        targetUserId,
+        requestContext
+      );
+
+      if (!result.success) {
+        res.status(result.statusCode || 403).json({ message: result.message });
+        return;
+      }
+
+      res.json(result.user);
+    } catch (error) {
+      const idParam = parseInt(req.params.id, 10);
+      logErrorContext('user.verify_access.error', error, { id: idParam });
+      await logAuditError({
+        action: AuditAction.update,
+        entityType: 'user',
+        entityId: isNaN(idParam) ? undefined : idParam,
+        errorKey: 'verify_access_error',
+        ipAddress: req.ip || (req as any).connection?.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
+      res.status(500).json({ error: 'Failed to verify access' });
+    }
+  }
 }

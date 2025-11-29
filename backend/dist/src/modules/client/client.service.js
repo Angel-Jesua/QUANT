@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClientService = void 0;
 const client_1 = require("@prisma/client");
+const password_1 = require("../../utils/password");
+const encryption_service_1 = require("../../utils/encryption.service");
 const prisma = new client_1.PrismaClient();
 const DECIMAL_ZERO = new client_1.Prisma.Decimal(0);
 function toDecimal(value) {
@@ -48,14 +50,11 @@ function mapClient(row) {
         clientCode: row.clientCode,
         taxId: row.taxId ?? undefined,
         name: row.name,
-        contactName: row.contactName ?? undefined,
         email: row.email ?? undefined,
         phone: row.phone ?? undefined,
         address: row.address ?? undefined,
         city: row.city ?? undefined,
-        state: row.state ?? undefined,
         country: row.country,
-        postalCode: row.postalCode ?? undefined,
         creditLimit: formatMoney(row.creditLimit),
         currencyId: row.currencyId,
         isActive: row.isActive,
@@ -91,10 +90,19 @@ class ClientService {
             where.isActive = filters.isActive;
         if (typeof filters.countryCode === 'string')
             where.country = filters.countryCode;
-        if (typeof filters.stateCode === 'string')
-            where.state = filters.stateCode;
         if (typeof filters.currencyId === 'number')
             where.currencyId = filters.currencyId;
+        if (filters.startDate || filters.endDate) {
+            where.createdAt = {};
+            if (filters.startDate)
+                where.createdAt.gte = filters.startDate;
+            if (filters.endDate) {
+                // Adjust end date to include the full day
+                const end = new Date(filters.endDate);
+                end.setHours(23, 59, 59, 999);
+                where.createdAt.lte = end;
+            }
+        }
         if (typeof filters.search === 'string') {
             const s = filters.search.trim();
             if (s.length > 0) {
@@ -133,14 +141,11 @@ class ClientService {
                 clientCode: row.clientCode,
                 taxId: row.taxId ?? null,
                 name: row.name,
-                contactName: row.contactName ?? null,
                 email: row.email ?? null,
                 phone: row.phone ?? null,
                 address: row.address ?? null,
                 city: row.city ?? null,
-                state: row.state ?? null,
                 country: row.country,
-                postalCode: row.postalCode ?? null,
                 creditLimit: row.creditLimit,
                 currencyId: row.currencyId,
                 isActive: row.isActive,
@@ -168,14 +173,11 @@ class ClientService {
             clientCode: client.clientCode,
             taxId: client.taxId ?? null,
             name: client.name,
-            contactName: client.contactName ?? null,
             email: client.email ?? null,
             phone: client.phone ?? null,
             address: client.address ?? null,
             city: client.city ?? null,
-            state: client.state ?? null,
             country: client.country,
-            postalCode: client.postalCode ?? null,
             creditLimit: client.creditLimit,
             currencyId: client.currencyId,
             isActive: client.isActive,
@@ -205,9 +207,6 @@ class ClientService {
         const taxId = typeof data.taxId === 'string' && data.taxId.trim().length > 0
             ? data.taxId.trim().toUpperCase()
             : null;
-        const contactName = typeof data.contactName === 'string' && data.contactName.trim().length > 0
-            ? data.contactName.trim()
-            : null;
         const email = typeof data.email === 'string' && data.email.trim().length > 0
             ? data.email.trim().toLowerCase()
             : null;
@@ -220,15 +219,9 @@ class ClientService {
         const city = typeof data.city === 'string' && data.city.trim().length > 0
             ? data.city.trim()
             : null;
-        const state = typeof data.state === 'string' && data.state.trim().length > 0
-            ? data.state.trim()
-            : null;
         const country = typeof data.country === 'string' && data.country.trim().length > 0
             ? data.country.trim()
             : 'Nicaragua';
-        const postalCode = typeof data.postalCode === 'string' && data.postalCode.trim().length > 0
-            ? data.postalCode.trim()
-            : null;
         const creditLimitDecimal = normalizeCreditLimit(data.creditLimit);
         const isActive = typeof data.isActive === 'boolean' ? data.isActive : true;
         await this.ensureCurrencyExists(currencyId);
@@ -256,14 +249,11 @@ class ClientService {
                     clientCode,
                     taxId,
                     name,
-                    contactName,
                     email,
                     phone,
                     address,
                     city,
-                    state,
                     country,
-                    postalCode,
                     creditLimit: creditLimitDecimal,
                     currencyId,
                     isActive,
@@ -303,14 +293,11 @@ class ClientService {
                 clientCode: created.clientCode,
                 taxId: created.taxId ?? null,
                 name: created.name,
-                contactName: created.contactName ?? null,
                 email: created.email ?? null,
                 phone: created.phone ?? null,
                 address: created.address ?? null,
                 city: created.city ?? null,
-                state: created.state ?? null,
                 country: created.country,
-                postalCode: created.postalCode ?? null,
                 creditLimit: created.creditLimit,
                 currencyId: created.currencyId,
                 isActive: created.isActive,
@@ -389,13 +376,6 @@ class ClientService {
                 throw new Error('NAME_REQUIRED');
             updateData.name = v;
         }
-        if (typeof data.contactName === 'string') {
-            const v = data.contactName.trim();
-            updateData.contactName = v.length > 0 ? v : null;
-        }
-        else if (data.contactName === null) {
-            updateData.contactName = null;
-        }
         if (typeof data.email === 'string') {
             const v = data.email.trim().toLowerCase();
             updateData.email = v.length > 0 ? v : null;
@@ -424,22 +404,8 @@ class ClientService {
         else if (data.city === null) {
             updateData.city = null;
         }
-        if (typeof data.state === 'string') {
-            const v = data.state.trim();
-            updateData.state = v.length > 0 ? v : null;
-        }
-        else if (data.state === null) {
-            updateData.state = null;
-        }
         if (typeof data.country === 'string') {
             updateData.country = data.country.trim();
-        }
-        if (typeof data.postalCode === 'string') {
-            const v = data.postalCode.trim();
-            updateData.postalCode = v.length > 0 ? v : null;
-        }
-        else if (data.postalCode === null) {
-            updateData.postalCode = null;
         }
         if (typeof data.isActive === 'boolean') {
             updateData.isActive = data.isActive;
@@ -495,14 +461,11 @@ class ClientService {
                 clientCode: updated.clientCode,
                 taxId: updated.taxId ?? null,
                 name: updated.name,
-                contactName: updated.contactName ?? null,
                 email: updated.email ?? null,
                 phone: updated.phone ?? null,
                 address: updated.address ?? null,
                 city: updated.city ?? null,
-                state: updated.state ?? null,
                 country: updated.country,
-                postalCode: updated.postalCode ?? null,
                 creditLimit: updated.creditLimit,
                 currencyId: updated.currencyId,
                 isActive: updated.isActive,
@@ -605,6 +568,98 @@ class ClientService {
                 // ignore
             }
             throw error;
+        }
+    }
+    /**
+     * Verify user password and get client details with decrypted email and phone.
+     * Works for both administrator and accountant roles.
+     */
+    async verifyAndGetClientDetails(requestingUserId, password, clientId, requestContext) {
+        try {
+            // Get the requesting user to verify password
+            const requestingUser = await prisma.userAccount.findUnique({
+                where: { id: requestingUserId },
+                select: { id: true, role: true, passwordHash: true, isActive: true }
+            });
+            if (!requestingUser || !requestingUser.isActive) {
+                return { success: false, message: 'Usuario no encontrado', statusCode: 404 };
+            }
+            // Verify the user's password
+            const isPasswordValid = await (0, password_1.comparePassword)(password, requestingUser.passwordHash);
+            if (!isPasswordValid) {
+                // Log failed password verification
+                await prisma.userAuditLog.create({
+                    data: {
+                        userId: requestingUserId,
+                        action: client_1.AuditAction.failed_login,
+                        entityType: 'client',
+                        entityId: clientId,
+                        ipAddress: requestContext?.ipAddress,
+                        userAgent: requestContext?.userAgent,
+                        success: false,
+                        errorMessage: 'invalid_password_client_view',
+                        performedAt: new Date()
+                    }
+                });
+                return { success: false, message: 'Contraseña incorrecta', statusCode: 401 };
+            }
+            // Get the client details
+            const client = await prisma.client.findUnique({
+                where: { id: clientId },
+                select: { id: true, email: true, phone: true, address: true, createdById: true }
+            });
+            if (!client) {
+                return { success: false, message: 'Cliente no encontrado', statusCode: 404 };
+            }
+            // Verify ownership - user can only view their own clients
+            if (client.createdById !== requestingUserId) {
+                return { success: false, message: 'No autorizado para ver este cliente', statusCode: 403 };
+            }
+            // Decrypt email, phone and address
+            let decryptedEmail = client.email;
+            let decryptedPhone = client.phone;
+            let decryptedAddress = client.address;
+            try {
+                const encryptionService = (0, encryption_service_1.getEncryptionService)();
+                if (client.email && encryptionService.isEncrypted(client.email)) {
+                    decryptedEmail = encryptionService.decrypt(client.email, 'email', 'Client');
+                }
+                if (client.phone && encryptionService.isEncrypted(client.phone)) {
+                    decryptedPhone = encryptionService.decrypt(client.phone, 'phone', 'Client');
+                }
+                if (client.address && encryptionService.isEncrypted(client.address)) {
+                    decryptedAddress = encryptionService.decrypt(client.address, 'address', 'Client');
+                }
+            }
+            catch (decryptError) {
+                console.error('Error decrypting client data:', decryptError);
+                // Keep encrypted values if decryption fails
+            }
+            // Log successful access
+            await prisma.userAuditLog.create({
+                data: {
+                    userId: requestingUserId,
+                    action: client_1.AuditAction.login,
+                    entityType: 'client',
+                    entityId: clientId,
+                    ipAddress: requestContext?.ipAddress,
+                    userAgent: requestContext?.userAgent,
+                    success: true,
+                    performedAt: new Date()
+                }
+            });
+            return {
+                success: true,
+                data: {
+                    email: decryptedEmail ?? undefined,
+                    phone: decryptedPhone ?? undefined,
+                    address: decryptedAddress ?? undefined
+                }
+            };
+        }
+        catch (error) {
+            console.error('Error in verifyAndGetClientDetails:', error);
+            return { success: false, message: 'Error interno del servidor', statusCode: 500 };
         }
     }
 }

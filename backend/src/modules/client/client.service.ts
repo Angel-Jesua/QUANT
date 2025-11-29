@@ -7,6 +7,8 @@ import {
   IClient,
   ClientListFilters as IClientListFilters,
 } from './client.types';
+import { comparePassword } from '../../utils/password';
+import { getEncryptionService } from '../../utils/encryption.service';
 
 const prisma = new PrismaClient();
 
@@ -634,6 +636,114 @@ export class ClientService {
         // ignore
       }
       throw error;
+    }
+  }
+
+  /**
+   * Verify user password and get client details with decrypted email and phone.
+   * Works for both administrator and accountant roles.
+   */
+  async verifyAndGetClientDetails(
+    requestingUserId: number,
+    password: string,
+    clientId: number,
+    requestContext?: { ipAddress?: string; userAgent?: string }
+  ): Promise<{ success: boolean; message?: string; statusCode?: number; data?: { email?: string; phone?: string; address?: string } }> {
+    try {
+      // Get the requesting user to verify password
+      const requestingUser = await prisma.userAccount.findUnique({
+        where: { id: requestingUserId },
+        select: { id: true, role: true, passwordHash: true, isActive: true }
+      });
+
+      if (!requestingUser || !requestingUser.isActive) {
+        return { success: false, message: 'Usuario no encontrado', statusCode: 404 };
+      }
+
+      // Verify the user's password
+      const isPasswordValid = await comparePassword(password, requestingUser.passwordHash);
+      if (!isPasswordValid) {
+        // Log failed password verification
+        await prisma.userAuditLog.create({
+          data: {
+            userId: requestingUserId,
+            action: AuditAction.failed_login,
+            entityType: 'client',
+            entityId: clientId,
+            ipAddress: requestContext?.ipAddress,
+            userAgent: requestContext?.userAgent,
+            success: false,
+            errorMessage: 'invalid_password_client_view',
+            performedAt: new Date()
+          }
+        });
+        return { success: false, message: 'Contraseña incorrecta', statusCode: 401 };
+      }
+
+      // Get the client details
+      const client = await prisma.client.findUnique({
+        where: { id: clientId },
+        select: { id: true, email: true, phone: true, address: true, createdById: true }
+      });
+
+      if (!client) {
+        return { success: false, message: 'Cliente no encontrado', statusCode: 404 };
+      }
+
+      // Verify ownership - user can only view their own clients
+      if (client.createdById !== requestingUserId) {
+        return { success: false, message: 'No autorizado para ver este cliente', statusCode: 403 };
+      }
+
+      // Decrypt email, phone and address
+      let decryptedEmail = client.email;
+      let decryptedPhone = client.phone;
+      let decryptedAddress = client.address;
+
+      try {
+        const encryptionService = getEncryptionService();
+        
+        if (client.email && encryptionService.isEncrypted(client.email)) {
+          decryptedEmail = encryptionService.decrypt(client.email, 'email', 'Client');
+        }
+        
+        if (client.phone && encryptionService.isEncrypted(client.phone)) {
+          decryptedPhone = encryptionService.decrypt(client.phone, 'phone', 'Client');
+        }
+
+        if (client.address && encryptionService.isEncrypted(client.address)) {
+          decryptedAddress = encryptionService.decrypt(client.address, 'address', 'Client');
+        }
+      } catch (decryptError) {
+        console.error('Error decrypting client data:', decryptError);
+        // Keep encrypted values if decryption fails
+      }
+
+      // Log successful access
+      await prisma.userAuditLog.create({
+        data: {
+          userId: requestingUserId,
+          action: AuditAction.login,
+          entityType: 'client',
+          entityId: clientId,
+          ipAddress: requestContext?.ipAddress,
+          userAgent: requestContext?.userAgent,
+          success: true,
+          performedAt: new Date()
+        }
+      });
+
+      return {
+        success: true,
+        data: {
+          email: decryptedEmail ?? undefined,
+          phone: decryptedPhone ?? undefined,
+          address: decryptedAddress ?? undefined
+        }
+      };
+    } catch (error) {
+      console.error('Error in verifyAndGetClientDetails:', error);
+      return { success: false, message: 'Error interno del servidor', statusCode: 500 };
     }
   }
 }

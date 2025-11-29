@@ -1,10 +1,10 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
-import { AuthService } from '../../auth/auth.service';
-import { API_BASE_URL } from '../constants/api.constants';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const isApiRequest = req.url.startsWith(API_BASE_URL);
+  // Aplicar withCredentials a todas las peticiones a la API (localhost o producción)
+  const isApiRequest = req.url.includes('/api/') || 
+                       req.url.includes('localhost:3000') || 
+                       req.url.includes('ondigitalocean.app');
 
   if (!isApiRequest) {
     return next(req);

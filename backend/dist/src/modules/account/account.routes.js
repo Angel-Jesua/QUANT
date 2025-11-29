@@ -9,6 +9,8 @@ exports.accountRoutes = router;
 const accountController = new account_controller_1.AccountController();
 // Protect all account routes with JWT
 router.use(auth_middleware_1.authenticateJWT);
+// Bulk import route (must be before /:id to avoid route conflict)
+router.post('/bulk-import', accountController.bulkImport.bind(accountController));
 // Account CRUD routes
 router.post('/', accountController.createAccount.bind(accountController));
 router.get('/:id', accountController.getAccountById.bind(accountController));

@@ -1,4 +1,4 @@
-import { PrismaClient, AuditAction, AccountType, Prisma } from '@prisma/client';
+import { PrismaClient, AuditAction, AccountType, AccountCurrency, Prisma } from '@prisma/client';
 import {
   ICreateAccount,
   IUpdateAccount,
@@ -9,52 +9,240 @@ import {
 const prisma = new PrismaClient();
 
 /**
+ * Mapping of common parent account names to their codes.
+ * Used to resolve "Cuenta Padre" column values from Excel imports.
+ */
+const PARENT_NAME_TO_CODE_MAP: Record<string, string> = {
+  // Activo
+  'activo': '100-000-000',
+  'activos': '100-000-000',
+  'activo corriente': '110-000-000',
+  'activos corrientes': '110-000-000',
+  'activo no corriente': '120-000-000',
+  'activos no corrientes': '120-000-000',
+  'activo fijo': '120-000-000',
+  'activos fijos': '120-000-000',
+  // Pasivo
+  'pasivo': '200-000-000',
+  'pasivos': '200-000-000',
+  'pasivo corriente': '210-000-000',
+  'pasivos corrientes': '210-000-000',
+  'pasivo no corriente': '220-000-000',
+  'pasivos no corrientes': '220-000-000',
+  'pasivo no corriente ': '220-000-000',
+  // Capital
+  'capital': '300-000-000',
+  'patrimonio': '300-000-000',
+  'capital social': '310-000-000',
+  'utilidades': '320-000-000',
+  'utilidades ': '320-000-000',
+  // Ingresos
+  'ingresos': '400-000-000',
+  'ingreso': '400-000-000',
+  'ingresos por servicios': '410-000-000',
+  'otros ingresos': '420-000-000',
+  // Costos
+  'costos': '500-000-000',
+  'costo': '500-000-000',
+  'costos de actividades economicas': '510-000-000',
+  // Gastos
+  'gastos': '600-000-000',
+  'gasto': '600-000-000',
+  'gastos generales': '610-000-000',
+  'gastos administrativos': '620-000-000',
+};
+
+/**
+ * Resolve a parent account name to its code.
+ * Handles common variations and normalizations.
+ */
+function resolveParentNameToCode(parentName: string): string | undefined {
+  if (!parentName) return undefined;
+  
+  const normalized = parentName.trim().toLowerCase();
+  
+  // Direct lookup
+  if (PARENT_NAME_TO_CODE_MAP[normalized]) {
+    return PARENT_NAME_TO_CODE_MAP[normalized];
+  }
+  
+  // Try without trailing spaces
+  const withoutTrailingSpaces = normalized.replace(/\s+$/, '');
+  if (PARENT_NAME_TO_CODE_MAP[withoutTrailingSpaces]) {
+    return PARENT_NAME_TO_CODE_MAP[withoutTrailingSpaces];
+  }
+  
+  // Try partial matches for common patterns
+  if (normalized.includes('activo corriente') && !normalized.includes('no corriente')) {
+    return '110-000-000';
+  }
+  if (normalized.includes('activo no corriente') || normalized.includes('activo fijo')) {
+    return '120-000-000';
+  }
+  if (normalized.includes('activo')) {
+    return '100-000-000';
+  }
+  if (normalized.includes('pasivo corriente') && !normalized.includes('no corriente')) {
+    return '210-000-000';
+  }
+  if (normalized.includes('pasivo no corriente')) {
+    return '220-000-000';
+  }
+  if (normalized.includes('pasivo')) {
+    return '200-000-000';
+  }
+  if (normalized.includes('capital') || normalized.includes('patrimonio')) {
+    return '300-000-000';
+  }
+  if (normalized.includes('otros ingresos')) {
+    return '420-000-000';
+  }
+  if (normalized.includes('ingreso')) {
+    return '400-000-000';
+  }
+  if (normalized.includes('costo')) {
+    return '500-000-000';
+  }
+  if (normalized.includes('gasto')) {
+    return '600-000-000';
+  }
+  
+  return undefined;
+}
+
+/**
  * Normalize account type string to Prisma AccountType enum.
  * Maps common variations to the correct enum value.
+ * Handles all types from the IURIS CONSULTUS chart of accounts.
  */
 function normalizeAccountType(typeString: string): AccountType {
   const normalized = typeString.trim().toLowerCase();
   
-  // Direct matches
+  // Direct matches - comprehensive mapping for all Excel types
   const typeMap: Record<string, AccountType> = {
+    // ACTIVO types
     'activo': AccountType.Activo,
     'activos': AccountType.Activo,
     'activo corriente': AccountType.Activo,
+    'activos corrientes': AccountType.Activo,
     'activo no corriente': AccountType.Activo,
+    'activos no corrientes': AccountType.Activo,
     'activo fijo': AccountType.Activo,
+    'efectivo y equivalente de efectivo': AccountType.Activo,
+    'cuentas por cobrar': AccountType.Activo,
+    'pagos anticipados': AccountType.Activo,
+    'depreciacion acumulada': AccountType.Activo,
+    'propiedad planta y equipo': AccountType.Activo,
+    'mobiliario y equipo de oficina': AccountType.Activo,
+    'suejto a rendicion de cuenta': AccountType.Activo, // Typo in Excel
+    'sujeto a rendicion de cuenta': AccountType.Activo,
+    
+    // PASIVO types
     'pasivo': AccountType.Pasivo,
     'pasivos': AccountType.Pasivo,
     'pasivo corriente': AccountType.Pasivo,
+    'pasivos corrientes': AccountType.Pasivo,
     'pasivo no corriente': AccountType.Pasivo,
+    'pasivo no corriente ': AccountType.Pasivo, // With trailing space
+    'pasivos no corrientes': AccountType.Pasivo,
+    'cuentas por pagar': AccountType.Pasivo,
+    'cuentas por pagar proveedores': AccountType.Pasivo,
+    'cuentas por pagar proveedores ': AccountType.Pasivo,
+    'cuentas por pagar a socios': AccountType.Pasivo,
+    'cuentas por pagar servicios publicos': AccountType.Pasivo,
+    'otras cuentas por pagar': AccountType.Pasivo,
+    'retenciones': AccountType.Pasivo,
+    'retenciones a pagar': AccountType.Pasivo,
+    'impuestos a pagar': AccountType.Pasivo,
+    'provisiones': AccountType.Pasivo,
+    'provisiones ': AccountType.Pasivo,
+    'gastos acumulados por pagar': AccountType.Pasivo,
+    'anticipos clientes': AccountType.Pasivo,
+    'anticipo de gastos': AccountType.Pasivo,
+    'prestamos': AccountType.Pasivo,
+    'prestamos y documentos a pagar largo plazo': AccountType.Pasivo,
+    
+    // CAPITAL types
     'capital': AccountType.Capital,
     'patrimonio': AccountType.Capital,
     'capital contable': AccountType.Capital,
-    'costos': AccountType.Costos,
-    'costo': AccountType.Costos,
-    'costo de venta': AccountType.Costos,
-    'costo de ventas': AccountType.Costos,
+    'capital social': AccountType.Capital,
+    'capital social autorizado': AccountType.Capital,
+    'capital social pagado': AccountType.Capital,
+    'utilidades': AccountType.Capital,
+    'utilidades ': AccountType.Capital,
+    
+    // INGRESOS types
     'ingresos': AccountType.Ingresos,
     'ingreso': AccountType.Ingresos,
     'ventas': AccountType.Ingresos,
     'otros ingresos': AccountType.Ingresos,
+    'ingresos por servicios': AccountType.Ingresos,
+    'ingresos por prestacion de servicios': AccountType.Ingresos,
+    'ingresos por servicios nuevas tecnologias': AccountType.Ingresos,
+    'ingresos por servicios/ administracion-contable': AccountType.Ingresos,
+    'ingresos por servicios/corporativo': AccountType.Ingresos,
+    'ingresos por servicios/litigio': AccountType.Ingresos,
+    'ingresos por servicios/tributario': AccountType.Ingresos,
+    'productos financieros': AccountType.Ingresos,
+    'descuentos': AccountType.Ingresos,
+    'descuentos por servicios': AccountType.Ingresos,
+    'fee': AccountType.Ingresos,
+    
+    // COSTOS types
+    'costos': AccountType.Costos,
+    'costo': AccountType.Costos,
+    'costo de venta': AccountType.Costos,
+    'costo de ventas': AccountType.Costos,
+    'costos de actividades economicas': AccountType.Costos,
+    'servicios': AccountType.Costos,
+    
+    // GASTOS types
     'gastos': AccountType.Gastos,
     'gasto': AccountType.Gastos,
     'gastos operativos': AccountType.Gastos,
     'gastos administrativos': AccountType.Gastos,
     'gastos de operacion': AccountType.Gastos,
+    'gastos generales': AccountType.Gastos,
+    'gastos financieros': AccountType.Gastos,
+    'gastos no deducibles': AccountType.Gastos,
+    'gastos de viajes': AccountType.Gastos,
+    'gastos por servicios legales': AccountType.Gastos,
+    'gastos publicitarios': AccountType.Gastos,
+    'gastos de socios': AccountType.Gastos,
+    'gasto por depreciacion': AccountType.Gastos,
+    'gasto por depreciacion ': AccountType.Gastos,
+    'otros gastos': AccountType.Gastos,
+    'materiales y suministros': AccountType.Gastos,
+    'licencias': AccountType.Gastos,
+    'seguros': AccountType.Gastos,
+    'pagos y beneficios a empleados': AccountType.Gastos,
+    'obligaciones a empleados': AccountType.Gastos,
+    'impuestos de planillas': AccountType.Gastos,
+    'impuestos municipales': AccountType.Gastos,
+    'servicios basicos y otros': AccountType.Gastos,
+    'mantenimiento de instalaciones y equipos': AccountType.Gastos,
   };
 
   if (typeMap[normalized]) {
     return typeMap[normalized];
   }
 
-  // Partial match - check if type contains key words
+  // Partial match - check if type contains key words (order matters!)
+  // Check more specific patterns first
+  if (normalized.includes('cuentas por cobrar')) return AccountType.Activo;
+  if (normalized.includes('cuentas por pagar')) return AccountType.Pasivo;
+  if (normalized.includes('retenciones')) return AccountType.Pasivo;
+  if (normalized.includes('impuestos a pagar')) return AccountType.Pasivo;
+  if (normalized.includes('provisiones')) return AccountType.Pasivo;
+  if (normalized.includes('prestamos')) return AccountType.Pasivo;
+  if (normalized.includes('anticipos')) return AccountType.Pasivo;
   if (normalized.includes('activo')) return AccountType.Activo;
   if (normalized.includes('pasivo')) return AccountType.Pasivo;
-  if (normalized.includes('capital') || normalized.includes('patrimonio')) return AccountType.Capital;
+  if (normalized.includes('capital') || normalized.includes('patrimonio') || normalized.includes('utilidades')) return AccountType.Capital;
+  if (normalized.includes('ingreso') || normalized.includes('venta') || normalized.includes('fee')) return AccountType.Ingresos;
   if (normalized.includes('costo')) return AccountType.Costos;
-  if (normalized.includes('ingreso') || normalized.includes('venta')) return AccountType.Ingresos;
-  if (normalized.includes('gasto')) return AccountType.Gastos;
+  if (normalized.includes('gasto') || normalized.includes('depreciacion')) return AccountType.Gastos;
 
   // Default to Activo if no match (or throw error)
   console.warn(`Unknown account type: "${typeString}", defaulting to Activo`);
@@ -85,7 +273,7 @@ const ALLOWED_CHILDREN_BY_PARENT: Readonly<Record<AccountType, ReadonlyArray<Acc
 
 const ACCOUNT_INCLUDE: Prisma.AccountInclude = {
   parentAccount: true,
-  currency: true,
+  currencyRef: true,
   childAccounts: true,
   createdBy: true,
   updatedBy: true,
@@ -93,11 +281,14 @@ const ACCOUNT_INCLUDE: Prisma.AccountInclude = {
 
 function mapAccount(row: {
   id: number;
+  code: string;
   accountNumber: string;
   name: string;
   description: string | null;
   type: AccountType;
-  currencyId: number;
+  detailType: string | null;
+  currencyId: number | null;
+  currency: AccountCurrency | null;
   parentAccountId: number | null;
   isDetail: boolean;
   isActive: boolean;
@@ -105,15 +296,18 @@ function mapAccount(row: {
   updatedAt: Date;
   createdById: number;
   updatedById: number | null;
-  currency?: { id: number; code: string; name: string; symbol: string } | null;
-}): IAccountResponse & { currency?: { id: number; code: string; name: string } } {
+  currencyRef?: { id: number; code: string; name: string; symbol: string } | null;
+}): IAccountResponse & { currencyRef?: { id: number; code: string; name: string } } {
   return {
     id: row.id,
+    code: row.code,
     accountNumber: row.accountNumber,
     name: row.name,
     description: row.description ?? undefined,
     type: row.type,
-    currencyId: row.currencyId,
+    detailType: row.detailType ?? undefined,
+    currencyId: row.currencyId ?? undefined,
+    currency: row.currency ?? undefined,
     parentAccountId: row.parentAccountId ?? undefined,
     isDetail: row.isDetail,
     isActive: row.isActive,
@@ -121,10 +315,10 @@ function mapAccount(row: {
     updatedAt: row.updatedAt,
     createdById: row.createdById,
     updatedById: row.updatedById ?? undefined,
-    currency: row.currency ? {
-      id: row.currency.id,
-      code: row.currency.code,
-      name: row.currency.name,
+    currencyRef: row.currencyRef ? {
+      id: row.currencyRef.id,
+      code: row.currencyRef.code,
+      name: row.currencyRef.name,
     } : undefined,
   };
 }
@@ -145,9 +339,9 @@ async function ensureParentExists(parentId: number): Promise<void> {
   if (!parent) throw new Error('INVALID_PARENT');
 }
 
-async function ensureUniqueAccountNumber(accountNumber: string): Promise<void> {
+async function ensureUniqueCode(code: string): Promise<void> {
   const existing = await prisma.account.findFirst({
-    where: { accountNumber },
+    where: { code },
     select: { id: true },
   });
   if (existing) throw new Error('DUPLICATE_ACCOUNT_NUMBER');
@@ -324,7 +518,7 @@ export class AccountService {
     const row = await prisma.account.findUnique({
       where: { id },
       include: {
-        currency: true,
+        currencyRef: true,
         parentAccount: true,
         childAccounts: true,
         createdBy: true,
@@ -336,11 +530,14 @@ export class AccountService {
     // Narrow to mapped fields only
     return mapAccount({
       id: row.id,
+      code: row.code,
       accountNumber: row.accountNumber,
       name: row.name,
       description: row.description ?? null,
       type: row.type,
-      currencyId: row.currencyId,
+      detailType: row.detailType ?? null,
+      currencyId: row.currencyId ?? null,
+      currency: row.currency ?? null,
       parentAccountId: row.parentAccountId ?? null,
       isDetail: row.isDetail,
       isActive: row.isActive,
@@ -348,6 +545,7 @@ export class AccountService {
       updatedAt: row.updatedAt,
       createdById: row.createdById,
       updatedById: row.updatedById ?? null,
+      currencyRef: row.currencyRef,
     });
   }
 
@@ -359,13 +557,15 @@ export class AccountService {
       throw new Error('AUTH_REQUIRED');
     }
 
-    const accountNumber = (data.accountNumber ?? '').trim().toUpperCase();
+    // Usar code como campo principal, accountNumber como alias
+    const code = (data.code ?? '').trim().toUpperCase();
+    const accountNumber = data.accountNumber?.trim().toUpperCase() || code;
     const name = (data.name ?? '').trim();
     const type = data.type;
-    const currencyId = Number(data.currencyId);
+    const detailType = typeof data.detailType === 'string' ? data.detailType.trim() : null;
 
     // Basic validations
-    if (!accountNumber || accountNumber.length > 20) {
+    if (!code || code.length > 11) {
       throw new Error('ACCOUNT_NUMBER_INVALID');
     }
     if (!name) {
@@ -373,9 +573,6 @@ export class AccountService {
     }
     if (!isValidAccountType(type)) {
       throw new Error('INVALID_ACCOUNT_TYPE');
-    }
-    if (!Number.isInteger(currencyId) || currencyId <= 0) {
-      throw new Error('INVALID_CURRENCY');
     }
 
     const description =
@@ -390,26 +587,44 @@ export class AccountService {
 
     const isDetail = typeof data.isDetail === 'boolean' ? data.isDetail : true;
     const isActive = typeof data.isActive === 'boolean' ? data.isActive : true;
+    
     if (LEAF_ONLY_TYPES.includes(type) && !isDetail) {
       throw new Error('INVALID_ACCOUNT_TYPE');
     }
 
-    await ensureCurrencyExists(currencyId);
+    // Currency validation: solo requerido para cuentas de detalle
+    let currencyId: number | null = null;
+    let currency: AccountCurrency | null = null;
+    
+    if (isDetail) {
+      // Para cuentas de detalle, currency es requerido
+      if (data.currencyId && Number.isInteger(data.currencyId) && data.currencyId > 0) {
+        currencyId = data.currencyId;
+        await ensureCurrencyExists(currencyId);
+      }
+      if (data.currency) {
+        currency = data.currency as AccountCurrency;
+      }
+    }
+
     if (parentAccountId !== null) {
       await ensureParentExists(parentAccountId);
     }
-    await ensureUniqueAccountNumber(accountNumber);
+    await ensureUniqueCode(code);
     // Structural/type compatibility validation (CK_nature_by_type)
     await this.validateAccountTypeAndStructure({ type, parentAccountId });
 
     try {
       const created = await prisma.account.create({
         data: {
+          code,
           accountNumber,
           name,
           description,
           type,
+          detailType,
           currencyId,
+          currency,
           parentAccountId,
           isDetail,
           isActive,
@@ -427,10 +642,13 @@ export class AccountService {
           entityId: created.id,
           newData: {
             id: created.id,
+            code: created.code,
             accountNumber: created.accountNumber,
             name: created.name,
             type: created.type,
+            detailType: created.detailType,
             currencyId: created.currencyId,
+            currency: created.currency,
             parentAccountId: created.parentAccountId ?? undefined,
             isDetail: created.isDetail,
             isActive: created.isActive,
@@ -795,27 +1013,41 @@ export class AccountService {
               // Resolve parentAccountId for update
               let parentAccountId: number | null = null;
               if (account.parentAccountNumber) {
-                const importedParentId = createdAccountMap.get(account.parentAccountNumber);
+                let resolvedParentNumber = account.parentAccountNumber;
+                
+                // Check if parentAccountNumber is a name instead of a code
+                const isCodeFormat = /^\d{3}-\d{3}-\d{3}$/.test(account.parentAccountNumber);
+                if (!isCodeFormat) {
+                  const resolvedCode = resolveParentNameToCode(account.parentAccountNumber);
+                  if (resolvedCode) {
+                    resolvedParentNumber = resolvedCode;
+                  }
+                }
+                
+                const importedParentId = createdAccountMap.get(resolvedParentNumber);
                 if (importedParentId) {
                   parentAccountId = importedParentId;
                 } else {
-                  const dbParentId = existingMap.get(account.parentAccountNumber);
+                  const dbParentId = existingMap.get(resolvedParentNumber);
                   if (dbParentId) {
                     parentAccountId = dbParentId;
                   }
                 }
               }
 
-              // Update existing account
+              // Update existing account with new fields
+              const isDetailUpdate = account.isDetail ?? true;
               await tx.account.update({
                 where: { id: existingId },
                 data: {
                   name: account.name,
                   description: account.description?.trim() || null,
                   type: normalizeAccountType(account.type),
-                  currencyId: account.currencyId,
+                  detailType: account.detailType?.trim() || null,
+                  currencyId: isDetailUpdate && account.currencyId ? account.currencyId : null,
+                  currency: account.currency as AccountCurrency | null,
                   parentAccountId,
-                  isDetail: account.isDetail ?? true,
+                  isDetail: isDetailUpdate,
                   isActive: account.isActive ?? true,
                   updatedById: requestContext.userId as number,
                 },
@@ -845,13 +1077,25 @@ export class AccountService {
           // Resolve parentAccountId
           let parentAccountId: number | null = null;
           if (account.parentAccountNumber) {
+            let resolvedParentNumber = account.parentAccountNumber;
+            
+            // Check if parentAccountNumber is a name instead of a code
+            // If it doesn't match XXX-XXX-XXX format, try to resolve by name
+            const isCodeFormat = /^\d{3}-\d{3}-\d{3}$/.test(account.parentAccountNumber);
+            if (!isCodeFormat) {
+              const resolvedCode = resolveParentNameToCode(account.parentAccountNumber);
+              if (resolvedCode) {
+                resolvedParentNumber = resolvedCode;
+              }
+            }
+            
             // First check if parent was created in this import
-            const importedParentId = createdAccountMap.get(account.parentAccountNumber);
+            const importedParentId = createdAccountMap.get(resolvedParentNumber);
             if (importedParentId) {
               parentAccountId = importedParentId;
             } else {
               // Check in existing DB accounts
-              const dbParentId = existingMap.get(account.parentAccountNumber);
+              const dbParentId = existingMap.get(resolvedParentNumber);
               if (dbParentId) {
                 parentAccountId = dbParentId;
               } else {
@@ -866,31 +1110,40 @@ export class AccountService {
             }
           }
 
-          // Validate currency exists
-          const currency = await tx.currency.findUnique({
-            where: { id: account.currencyId },
-            select: { id: true },
-          });
-          if (!currency) {
-            results.push({
-              accountNumber: account.accountNumber,
-              success: false,
-              error: 'INVALID_CURRENCY',
+          // Validate currency exists only if provided and account is detail
+          const isDetail = account.isDetail ?? true;
+          let currencyId: number | null = null;
+          
+          if (isDetail && account.currencyId) {
+            const currency = await tx.currency.findUnique({
+              where: { id: account.currencyId },
+              select: { id: true },
             });
-            errorCount++;
-            continue;
+            if (!currency) {
+              results.push({
+                accountNumber: account.accountNumber,
+                success: false,
+                error: 'INVALID_CURRENCY',
+              });
+              errorCount++;
+              continue;
+            }
+            currencyId = account.currencyId;
           }
 
-          // Create account
+          // Create account with new fields
           const created = await tx.account.create({
             data: {
+              code: account.accountNumber, // Use accountNumber as code
               accountNumber: account.accountNumber,
               name: account.name,
               description: account.description?.trim() || null,
               type: normalizeAccountType(account.type),
-              currencyId: account.currencyId,
+              detailType: account.detailType?.trim() || null,
+              currencyId,
+              currency: account.currency as AccountCurrency | null,
               parentAccountId,
-              isDetail: account.isDetail ?? true,
+              isDetail,
               isActive: account.isActive ?? true,
               createdById: requestContext.userId as number,
             },

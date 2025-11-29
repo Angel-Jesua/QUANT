@@ -54,8 +54,9 @@ export class LoginComponent {
       this.authService.login(credentials).subscribe({
         next: (response) => {
           this.isLoading = false;
-          if (response.success && response.token) {
+          if (response.success) {
             // Navegar a la página principal después de un inicio de sesión exitoso
+            // El token se maneja via cookies HttpOnly
             this.router.navigate(['/dashboard']);
           } else {
             // Manejar respuesta inesperada del servidor

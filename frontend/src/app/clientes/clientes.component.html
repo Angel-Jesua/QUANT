@@ -220,7 +220,6 @@
                 <tr>
                   <th>Cliente/Código</th>
                   <th>RUC</th>
-                  <th>Contacto Principal</th>
                   <th>Ubicación</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -239,12 +238,6 @@
                       <div class="cliente-numero-ruc">{{ cliente.taxId || 'N/A' }}</div>
                     </td>
                     <td>
-                      <div class="contacto-info">
-                        <div class="contacto-email">{{ cliente.email || 'N/A' }}</div>
-                        <div class="contacto-telefono">{{ cliente.phone || 'N/A' }}</div>
-                      </div>
-                    </td>
-                    <td>
                       <div class="ubicacion-info">
                         <div>{{ cliente.country }}</div>
                         <div class="cliente-ciudad">{{ cliente.city || '' }}</div>
@@ -259,7 +252,7 @@
                     </td>
                     <td>
                       <div class="action-buttons">
-                        <button class="btn-action btn-view" (click)="viewCliente(cliente)" title="Ver">
+                        <button class="btn-action btn-view" (click)="openViewModal(cliente)" title="Ver">
                           <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M2 24C2 24 10 8 24 8C38 8 46 24 46 24C46 24 38 40 24 40C10 40 2 24 2 24Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M24 30C27.3137 30 30 27.3137 30 24C30 20.6863 27.3137 18 24 18C20.6863 18 18 20.6863 18 24C18 27.3137 20.6863 30 24 30Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -275,7 +268,7 @@
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="no-data">No hay clientes registrados</td>
+                    <td colspan="5" class="no-data">No hay clientes registrados</td>
                   </tr>
                 }
               </tbody>
@@ -317,3 +310,90 @@
     </div>
   </div>
 </div>
+
+<!-- Modal para ver detalles del cliente -->
+@if (showViewModal()) {
+  <div class="modal-overlay" (click)="closeViewModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ isPasswordVerified() ? 'Detalles del Cliente' : 'Verificar Identidad' }}</h3>
+        <button class="modal-close" (click)="closeViewModal()">&times;</button>
+      </div>
+      
+      @if (!isPasswordVerified()) {
+        <!-- Formulario de verificación de contraseña -->
+        <div class="modal-body">
+          <p class="modal-description">Para ver la información sensible del cliente, ingrese su contraseña:</p>
+          <div class="password-field">
+            <label>Contraseña:</label>
+            <input 
+              type="password" 
+              [(ngModel)]="verificationPassword"
+              (keyup.enter)="verifyPasswordAndShowDetails()"
+              placeholder="Ingrese su contraseña"
+              class="form-input"
+            />
+          </div>
+          @if (viewModalError()) {
+            <div class="modal-error">{{ viewModalError() }}</div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" (click)="closeViewModal()">Cancelar</button>
+          <button class="btn-register" (click)="verifyPasswordAndShowDetails()" [disabled]="isVerifying()">
+            {{ isVerifying() ? 'Verificando...' : 'Verificar' }}
+          </button>
+        </div>
+      } @else {
+        <!-- Detalles del cliente desencriptados -->
+        <div class="modal-body client-details">
+          <div class="detail-row">
+            <span class="detail-label">Nombre:</span>
+            <span class="detail-value">{{ selectedClient()?.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Código:</span>
+            <span class="detail-value">{{ selectedClient()?.clientCode }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">RUC:</span>
+            <span class="detail-value">{{ selectedClient()?.taxId || 'N/A' }}</span>
+          </div>
+          <div class="detail-row highlight">
+            <span class="detail-label">Email:</span>
+            <span class="detail-value">{{ decryptedClientData()?.email || 'N/A' }}</span>
+          </div>
+          <div class="detail-row highlight">
+            <span class="detail-label">Teléfono:</span>
+            <span class="detail-value">{{ decryptedClientData()?.phone || 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">País:</span>
+            <span class="detail-value">{{ selectedClient()?.country }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Ciudad:</span>
+            <span class="detail-value">{{ selectedClient()?.city || 'N/A' }}</span>
+          </div>
+          <div class="detail-row highlight">
+            <span class="detail-label">Dirección:</span>
+            <span class="detail-value">{{ decryptedClientData()?.address || 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Límite de Crédito:</span>
+            <span class="detail-value">{{ selectedClient()?.creditLimit | currency:'USD' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Estado:</span>
+            <span class="detail-value" [class.active-status]="selectedClient()?.isActive" [class.inactive-status]="!selectedClient()?.isActive">
+              {{ selectedClient()?.isActive ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-register" (click)="closeViewModal()">Cerrar</button>
+        </div>
+      }
+    </div>
+  </div>
+}

@@ -163,6 +163,24 @@
           </span>
         </div>
 
+        <div class="mapping-field">
+          <label for="mapParentAccount">Cuenta Padre (opcional)</label>
+          <select
+            id="mapParentAccount"
+            [ngModel]="columnMapping().parentAccount"
+            (ngModelChange)="updateMapping('parentAccount', $event)"
+          >
+            <option value="">-- No mapear (detectar automáticamente) --</option>
+            @for (header of headers(); track header) {
+              <option [value]="header">{{ header }}</option>
+            }
+          </select>
+          <span class="field-hint">
+            Si el Excel tiene una columna con el código de la cuenta padre, selecciónela aquí.
+            Si no se mapea, la jerarquía se detectará automáticamente por la estructura del número de cuenta.
+          </span>
+        </div>
+
         <div class="mapping-field default-currency-field">
           <label for="defaultCurrency">Moneda por Defecto <span class="required">*</span></label>
           <select
@@ -218,9 +236,10 @@
         <h4>ℹ️ Procesamiento Automático</h4>
         <ul>
           <li><strong>Cuentas Predefinidas:</strong> Las cuentas principales (100-000-000, 110-000-000, 200-000-000, etc.) serán omitidas automáticamente durante la importación.</li>
-          <li><strong>Jerarquía:</strong> Se inferirá automáticamente basándose en la estructura del número de cuenta (ej: 110-000-000 es padre de 111-000-000).</li>
+          <li><strong>Jerarquía con Columna "Cuenta Padre":</strong> Si mapea la columna "Cuenta Padre", el sistema usará ese valor directamente para establecer la relación padre-hijo.</li>
+          <li><strong>Jerarquía Automática:</strong> Si no mapea la columna "Cuenta Padre", se inferirá automáticamente basándose en la estructura del número de cuenta.</li>
           <li><strong>Cuenta Detalle:</strong> Las cuentas que no sean padres de otras serán marcadas como cuentas de detalle.</li>
-          <li><strong>Tipo Fijo:</strong> Puede seleccionar un tipo fijo para todas las cuentas o usar la columna del Excel.</li>
+          <li><strong>Tipo de Cuenta:</strong> Se puede inferir del número de cuenta (1xx=Activo, 2xx=Pasivo, etc.) o usar la columna del Excel.</li>
         </ul>
       </div>
     </section>

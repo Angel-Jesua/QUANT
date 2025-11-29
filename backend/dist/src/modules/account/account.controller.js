@@ -16,7 +16,7 @@ class AccountController {
     async getAllAccounts(req, res) {
         try {
             const page = parsePositiveInt(req.query.page, 1);
-            const pageSize = parseLimit((req.query.pageSize ?? req.query.limit), 20, 100);
+            const pageSize = parseLimit((req.query.pageSize ?? req.query.limit), 20, 1000);
             const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
             const isActiveFilter = parseBooleanQuery(req.query.isActive);
             const isDetailFilter = parseBooleanQuery(req.query.isDetail);
@@ -126,26 +126,31 @@ class AccountController {
     }
     /**
      * Create a new account.
-     * Body: { accountNumber, name, type, currencyId, description?, parentAccountId?, isDetail?, isActive? }.
+     * Body: { code, name, type, currencyId?, detailType?, description?, parentAccountId?, isDetail?, isActive? }.
      * Uses req.userId as createdBy.
      * Returns: 201 on success; 400 for validation/duplicate; 500 on unexpected error.
      */
     async createAccount(req, res) {
         try {
             const body = req.body;
-            const accountNumber = typeof body.accountNumber === 'string' ? body.accountNumber.trim().toUpperCase() : '';
+            // Usar code como campo principal, accountNumber como alias
+            const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() :
+                (typeof body.accountNumber === 'string' ? body.accountNumber.trim().toUpperCase() : '');
             const name = typeof body.name === 'string' ? body.name.trim() : '';
             const type = typeof body.type === 'string' ? body.type.trim() : '';
-            const currencyIdCandidate = body.currencyId;
+            const isDetail = typeof body.isDetail === 'boolean' ? body.isDetail : true;
             const errors = {};
-            if (!accountNumber || accountNumber.length > 20)
-                errors.accountNumber = 'accountNumber debe ser 1-20 caracteres';
+            if (!code || code.length > 11)
+                errors.code = 'code debe ser 1-11 caracteres (formato XXX-XXX-XXX)';
             if (!name)
                 errors.name = 'name es requerido';
             if (!isValidAccountTypeString(type))
                 errors.type = 'type inválido';
-            if (typeof currencyIdCandidate !== 'number' || !Number.isInteger(currencyIdCandidate) || currencyIdCandidate <= 0) {
-                errors.currencyId = 'currencyId debe ser un entero positivo';
+            // currencyId solo es requerido para cuentas de detalle
+            if (isDetail && body.currencyId !== undefined) {
+                if (typeof body.currencyId !== 'number' || !Number.isInteger(body.currencyId) || body.currencyId <= 0) {
+                    errors.currencyId = 'currencyId debe ser un entero positivo';
+                }
             }
             if (body.parentAccountId !== undefined && body.parentAccountId !== null) {
                 if (typeof body.parentAccountId !== 'number' || !Number.isInteger(body.parentAccountId) || body.parentAccountId <= 0) {
@@ -161,6 +166,9 @@ class AccountController {
             if (body.description !== undefined && typeof body.description !== 'string') {
                 errors.description = 'description debe ser string';
             }
+            if (body.detailType !== undefined && typeof body.detailType !== 'string') {
+                errors.detailType = 'detailType debe ser string';
+            }
             if (Object.keys(errors).length > 0) {
                 res.status(400).json({
                     success: false,
@@ -174,13 +182,15 @@ class AccountController {
                 userId: req.userId ?? req.user?.id,
             };
             const payload = {
-                accountNumber,
+                code,
+                accountNumber: code, // Usar code como accountNumber
                 name,
                 type: type,
-                currencyId: currencyIdCandidate,
+                detailType: typeof body.detailType === 'string' ? body.detailType.trim() : undefined,
+                currencyId: typeof body.currencyId === 'number' ? body.currencyId : undefined,
                 description: typeof body.description === 'string' ? body.description.trim() : undefined,
                 parentAccountId: typeof body.parentAccountId === 'number' ? body.parentAccountId : undefined,
-                isDetail: typeof body.isDetail === 'boolean' ? body.isDetail : undefined,
+                isDetail,
                 isActive: typeof body.isActive === 'boolean' ? body.isActive : undefined,
             };
             const created = await this.accountService.createAccount(payload, requestContext);
@@ -194,6 +204,7 @@ class AccountController {
             const safeBody = req?.body;
             const validationCodes = new Set([
                 'DUPLICATE_ACCOUNT_NUMBER',
+                'DUPLICATE_CODE',
                 'ACCOUNT_NUMBER_INVALID',
                 'NAME_REQUIRED',
                 'INVALID_ACCOUNT_TYPE',
@@ -438,6 +449,119 @@ class AccountController {
                 error: { message: 'Error interno del servidor' },
             });
         }
+    }
+    /**
+     * Bulk import accounts from pre-processed data.
+     * Body: { accounts: BulkImportAccountItem[] }
+     * Returns: 200 with import results; 400 for validation errors; 500 on unexpected error.
+     */
+    async bulkImport(req, res) {
+        try {
+            const body = req.body;
+            // Validate request structure
+            if (!body || !Array.isArray(body.accounts)) {
+                res.status(400).json({
+                    success: false,
+                    error: { message: 'Se requiere un array de cuentas', code: 'INVALID_PAYLOAD' },
+                });
+                return;
+            }
+            if (body.accounts.length === 0) {
+                res.status(400).json({
+                    success: false,
+                    error: { message: 'El array de cuentas está vacío', code: 'EMPTY_ACCOUNTS' },
+                });
+                return;
+            }
+            if (body.accounts.length > 1000) {
+                res.status(400).json({
+                    success: false,
+                    error: { message: 'Máximo 1000 cuentas por importación', code: 'TOO_MANY_ACCOUNTS' },
+                });
+                return;
+            }
+            // Validate each account item
+            const validationErrors = this.validateBulkImportItems(body.accounts);
+            if (validationErrors.length > 0) {
+                res.status(400).json({
+                    success: false,
+                    error: {
+                        message: 'Errores de validación en las cuentas',
+                        code: 'VALIDATION_ERROR',
+                        details: validationErrors,
+                    },
+                });
+                return;
+            }
+            const requestContext = {
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+                userId: req.userId ?? req.user?.id,
+            };
+            const result = await this.accountService.bulkImport(body.accounts, requestContext, body.updateExisting ?? false);
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        }
+        catch (error) {
+            (0, error_1.logErrorContext)('account.bulkImport.error', error, {
+                ip: req.ip || req.connection?.remoteAddress,
+                ua: req.get('User-Agent'),
+            });
+            await (0, error_1.logAuditError)({
+                action: client_1.AuditAction.create,
+                entityType: 'account',
+                errorKey: 'bulk_import_error',
+                ipAddress: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent'),
+            });
+            res.status(500).json({
+                success: false,
+                error: { message: 'Error interno del servidor durante la importación' },
+            });
+        }
+    }
+    /**
+     * Validate bulk import items and return validation errors
+     */
+    validateBulkImportItems(accounts) {
+        const validationErrors = [];
+        const seenAccountNumbers = new Set();
+        accounts.forEach((item, index) => {
+            const errors = {};
+            const accountNumber = typeof item.accountNumber === 'string'
+                ? item.accountNumber.trim().toUpperCase()
+                : '';
+            if (!accountNumber || accountNumber.length > 20) {
+                errors.accountNumber = 'accountNumber debe ser 1-20 caracteres';
+            }
+            else if (seenAccountNumbers.has(accountNumber)) {
+                errors.accountNumber = 'accountNumber duplicado en la importación';
+            }
+            else {
+                seenAccountNumbers.add(accountNumber);
+            }
+            if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+                errors.name = 'name es requerido';
+            }
+            // Accept any non-empty string for type
+            if (!item.type || typeof item.type !== 'string' || item.type.trim().length === 0) {
+                errors.type = 'type es requerido';
+            }
+            // currencyId solo es requerido para cuentas de detalle (isDetail = true o undefined)
+            // Las cuentas de resumen (isDetail = false) no requieren currencyId
+            const isDetailAccount = item.isDetail !== false;
+            if (isDetailAccount && item.currencyId !== undefined) {
+                if (typeof item.currencyId !== 'number' || !Number.isInteger(item.currencyId) || item.currencyId <= 0) {
+                    errors.currencyId = 'currencyId debe ser un entero positivo';
+                }
+            }
+            if (Object.keys(errors).length > 0) {
+                validationErrors.push({ index, accountNumber: accountNumber || `(índice ${index})`, errors });
+            }
+        });
+        return validationErrors;
     }
 }
 exports.AccountController = AccountController;

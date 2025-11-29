@@ -145,28 +145,33 @@ export class AccountController {
 
   /**
    * Create a new account.
-   * Body: { accountNumber, name, type, currencyId, description?, parentAccountId?, isDetail?, isActive? }.
+   * Body: { code, name, type, currencyId?, detailType?, description?, parentAccountId?, isDetail?, isActive? }.
    * Uses req.userId as createdBy.
    * Returns: 201 on success; 400 for validation/duplicate; 500 on unexpected error.
    */
   async createAccount(req: Request, res: Response): Promise<void> {
     try {
-      const body = req.body as Partial<AccountCreateDTO>;
+      const body = req.body as Partial<AccountCreateDTO & { code?: string }>;
 
-      const accountNumber =
-        typeof body.accountNumber === 'string' ? body.accountNumber.trim().toUpperCase() : '';
+      // Usar code como campo principal, accountNumber como alias
+      const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : 
+                   (typeof body.accountNumber === 'string' ? body.accountNumber.trim().toUpperCase() : '');
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       const type = typeof body.type === 'string' ? body.type.trim() : '';
-      const currencyIdCandidate = body.currencyId;
+      const isDetail = typeof body.isDetail === 'boolean' ? body.isDetail : true;
 
       const errors: Record<string, string> = {};
-      if (!accountNumber || accountNumber.length > 20)
-        errors.accountNumber = 'accountNumber debe ser 1-20 caracteres';
+      if (!code || code.length > 11)
+        errors.code = 'code debe ser 1-11 caracteres (formato XXX-XXX-XXX)';
       if (!name) errors.name = 'name es requerido';
       if (!isValidAccountTypeString(type))
         errors.type = 'type inválido';
-      if (typeof currencyIdCandidate !== 'number' || !Number.isInteger(currencyIdCandidate) || currencyIdCandidate <= 0) {
-        errors.currencyId = 'currencyId debe ser un entero positivo';
+      
+      // currencyId solo es requerido para cuentas de detalle
+      if (isDetail && body.currencyId !== undefined) {
+        if (typeof body.currencyId !== 'number' || !Number.isInteger(body.currencyId) || body.currencyId <= 0) {
+          errors.currencyId = 'currencyId debe ser un entero positivo';
+        }
       }
 
       if (body.parentAccountId !== undefined && body.parentAccountId !== null) {
@@ -184,6 +189,9 @@ export class AccountController {
       if (body.description !== undefined && typeof body.description !== 'string') {
         errors.description = 'description debe ser string';
       }
+      if (body.detailType !== undefined && typeof body.detailType !== 'string') {
+        errors.detailType = 'detailType debe ser string';
+      }
 
       if (Object.keys(errors).length > 0) {
         res.status(400).json({
@@ -200,13 +208,15 @@ export class AccountController {
       };
 
       const payload: ICreateAccount = {
-        accountNumber,
+        code,
+        accountNumber: code, // Usar code como accountNumber
         name,
         type: type as any,
-        currencyId: currencyIdCandidate as number,
+        detailType: typeof body.detailType === 'string' ? body.detailType.trim() : undefined,
+        currencyId: typeof body.currencyId === 'number' ? body.currencyId : undefined,
         description: typeof body.description === 'string' ? body.description.trim() : undefined,
         parentAccountId: typeof body.parentAccountId === 'number' ? body.parentAccountId : undefined,
-        isDetail: typeof body.isDetail === 'boolean' ? body.isDetail : undefined,
+        isDetail,
         isActive: typeof body.isActive === 'boolean' ? body.isActive : undefined,
       };
 
@@ -222,6 +232,7 @@ export class AccountController {
 
       const validationCodes = new Set([
         'DUPLICATE_ACCOUNT_NUMBER',
+        'DUPLICATE_CODE',
         'ACCOUNT_NUMBER_INVALID',
         'NAME_REQUIRED',
         'INVALID_ACCOUNT_TYPE',
@@ -596,8 +607,13 @@ export class AccountController {
         errors.type = 'type es requerido';
       }
 
-      if (typeof item.currencyId !== 'number' || !Number.isInteger(item.currencyId) || item.currencyId <= 0) {
-        errors.currencyId = 'currencyId debe ser un entero positivo';
+      // currencyId solo es requerido para cuentas de detalle (isDetail = true o undefined)
+      // Las cuentas de resumen (isDetail = false) no requieren currencyId
+      const isDetailAccount = item.isDetail !== false;
+      if (isDetailAccount && item.currencyId !== undefined) {
+        if (typeof item.currencyId !== 'number' || !Number.isInteger(item.currencyId) || item.currencyId <= 0) {
+          errors.currencyId = 'currencyId debe ser un entero positivo';
+        }
       }
 
       if (Object.keys(errors).length > 0) {

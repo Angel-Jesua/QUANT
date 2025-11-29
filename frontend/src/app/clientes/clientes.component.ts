@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, OnInit, signal, computed, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SidebarComponent } from '../dashboard/components/sidebar/sidebar.component';
 import { ClientService, Client, CreateClientDTO } from '../services/client.service';
@@ -8,7 +8,7 @@ import { ClientService, Client, CreateClientDTO } from '../services/client.servi
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [CommonModule, SidebarComponent, ReactiveFormsModule],
+  imports: [CommonModule, SidebarComponent, ReactiveFormsModule, FormsModule, CurrencyPipe],
   templateUrl: './clientes.component.html',
   styleUrls: ['./clientes.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -39,6 +39,15 @@ export class ClientesComponent implements OnInit {
   readonly totalPages = signal<number>(0);
   
   readonly editingClientId = signal<number | null>(null);
+
+  // Modal signals
+  readonly showViewModal = signal<boolean>(false);
+  readonly selectedClient = signal<Client | null>(null);
+  readonly isPasswordVerified = signal<boolean>(false);
+  readonly isVerifying = signal<boolean>(false);
+  readonly viewModalError = signal<string>('');
+  readonly decryptedClientData = signal<{ email?: string; phone?: string; address?: string } | null>(null);
+  verificationPassword = '';
 
   registrationForm: FormGroup;
   errorMessage = signal<string>('');
@@ -281,6 +290,58 @@ export class ClientesComponent implements OnInit {
 
   toggleClienteStatus(cliente: Client) {
     // Implement status toggle
+  }
+
+  openViewModal(cliente: Client) {
+    this.selectedClient.set(cliente);
+    this.showViewModal.set(true);
+    this.isPasswordVerified.set(false);
+    this.viewModalError.set('');
+    this.decryptedClientData.set(null);
+    this.verificationPassword = '';
+  }
+
+  closeViewModal() {
+    this.showViewModal.set(false);
+    this.selectedClient.set(null);
+    this.isPasswordVerified.set(false);
+    this.viewModalError.set('');
+    this.decryptedClientData.set(null);
+    this.verificationPassword = '';
+  }
+
+  verifyPasswordAndShowDetails() {
+    if (!this.verificationPassword.trim()) {
+      this.viewModalError.set('Ingrese su contraseña');
+      return;
+    }
+
+    const cliente = this.selectedClient();
+    if (!cliente) return;
+
+    this.isVerifying.set(true);
+    this.viewModalError.set('');
+
+    this.clientService.verifyAndGetClientDetails(cliente.id, this.verificationPassword)
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.decryptedClientData.set({
+              email: response.data.email,
+              phone: response.data.phone,
+              address: response.data.address
+            });
+            this.isPasswordVerified.set(true);
+          } else {
+            this.viewModalError.set(response.message || 'Error al verificar');
+          }
+          this.isVerifying.set(false);
+        },
+        error: (err) => {
+          this.viewModalError.set(err.error?.message || 'Contraseña incorrecta');
+          this.isVerifying.set(false);
+        }
+      });
   }
 
   viewCliente(cliente: Client) {

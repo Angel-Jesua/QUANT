@@ -65,6 +65,7 @@ export class AccountImportComponent implements OnInit {
     name: '',
     type: '',
     currency: '',
+    parentAccount: '',
     description: '',
   });
 
@@ -246,6 +247,7 @@ export class AccountImportComponent implements OnInit {
       name: '',
       type: '',
       currency: '',
+      parentAccount: '',
       description: '',
     };
 
@@ -256,10 +258,18 @@ export class AccountImportComponent implements OnInit {
     const namePatterns = ['nombre', 'name', 'descripcion', 'description'];
     const typePatterns = ['tipo', 'type', 'clasificacion', 'clase'];
     const currencyPatterns = ['moneda', 'currency', 'divisa', 'coin'];
+    const parentPatterns = ['padre', 'parent', 'cuenta padre', 'parent account', 'superior'];
     const descPatterns = ['detalle', 'observacion', 'nota', 'comment'];
 
     headers.forEach((header, idx) => {
       const lower = lowerHeaders[idx];
+      
+      // Detectar columna de cuenta padre primero (para evitar conflicto con "cuenta")
+      if (!mapping.parentAccount && parentPatterns.some((p) => lower.includes(p))) {
+        mapping.parentAccount = header;
+        return; // No continuar para evitar que se asigne a accountNumber
+      }
+      
       if (!mapping.accountNumber && accountPatterns.some((p) => lower.includes(p))) {
         mapping.accountNumber = header;
       }
@@ -422,6 +432,7 @@ export class AccountImportComponent implements OnInit {
       name: '',
       type: '',
       currency: '',
+      parentAccount: '',
       description: '',
     });
     this.defaultCurrency.set('');

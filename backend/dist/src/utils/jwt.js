@@ -7,6 +7,7 @@ exports.JWTConfigError = void 0;
 exports.isStrongSecret = isStrongSecret;
 exports.isValidExpiresIn = isValidExpiresIn;
 exports.generateAccessToken = generateAccessToken;
+exports.verifyAccessToken = verifyAccessToken;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 class JWTConfigError extends Error {
     constructor(message) {
@@ -96,4 +97,21 @@ function generateAccessToken(user) {
             role: String(user.role),
         },
     };
+}
+function verifyAccessToken(token) {
+    const rawSecret = process.env.JWT_SECRET;
+    if (!rawSecret)
+        throw new JWTConfigError('Missing JWT secret');
+    try {
+        const decoded = jsonwebtoken_1.default.verify(token, rawSecret);
+        return {
+            id: decoded.sub,
+            email: decoded.email,
+            username: decoded.username,
+            role: decoded.role
+        };
+    }
+    catch (error) {
+        throw new Error('Invalid token');
+    }
 }
