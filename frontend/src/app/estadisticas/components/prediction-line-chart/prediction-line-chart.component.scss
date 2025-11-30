@@ -1,0 +1,136 @@
+.chart-container {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chart-title {
+  color: #03055e;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.confidence-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+
+  &.high {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  &.medium {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+
+  &.low {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+}
+
+canvas {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.legend-line {
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+
+  &.historical {
+    background: #0062ff;
+  }
+
+  &.projected {
+    background: #10b981;
+    background: repeating-linear-gradient(
+      90deg,
+      #10b981,
+      #10b981 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  &.bounds {
+    background: rgba(16, 185, 129, 0.2);
+    height: 12px;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6b7280;
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.insufficient-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+
+  .warning-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #d97706;
+    max-width: 300px;
+  }
+}

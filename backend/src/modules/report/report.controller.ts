@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ReportService } from './report.service';
-import { ITrialBalanceQuery, IReportRequestContext, IBalanceSheetQuery, IAccountMovementsQuery, IIncomeStatementQuery } from './report.types';
+import { ITrialBalanceQuery, IBalanceSheetQuery, IAccountMovementsQuery, IIncomeStatementQuery } from './report.types';
 import { logErrorContext } from '../../utils/error';
 
 export class ReportController {

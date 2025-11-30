@@ -1,0 +1,38 @@
+<div class="chart-container">
+  <div class="chart-header">
+    <h3 class="chart-title">{{ title }}</h3>
+    @if (hasData && !hasInsufficientData) {
+      <span class="confidence-badge" [class]="confidenceLevel">
+        Confianza: {{ data!.confidence | number:'1.0-0' }}% ({{ confidenceLabel }})
+      </span>
+    }
+  </div>
+
+  @if (hasInsufficientData) {
+    <div class="insufficient-data">
+      <span class="warning-icon">⚠️</span>
+      <p>{{ insufficientDataMessage || 'Datos insuficientes para generar predicciones' }}</p>
+    </div>
+  } @else if (!hasData) {
+    <div class="empty-state">
+      <span class="empty-icon">🔮</span>
+      <p>No hay datos disponibles para predicciones</p>
+    </div>
+  } @else {
+    <canvas #chartCanvas [width]="700" [height]="height"></canvas>
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-line historical"></span>
+        <span>Histórico</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line projected"></span>
+        <span>Proyectado</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line bounds"></span>
+        <span>Rango de confianza</span>
+      </div>
+    </div>
+  }
+</div>

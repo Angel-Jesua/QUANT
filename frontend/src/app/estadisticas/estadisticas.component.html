@@ -1,0 +1,417 @@
+<div class="page-wrapper">
+  <app-sidebar></app-sidebar>
+
+  <main class="main-content">
+    <!-- Header -->
+    <header class="page-header">
+      <h1 class="company-title">{{ companyTitle }}</h1>
+      <div class="header-divider"></div>
+      <p class="page-subtitle">{{ pageTitle }}</p>
+    </header>
+
+    <!-- Filters Card -->
+    <section class="filters-card">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="startDate" class="filter-label">Fecha Inicio</label>
+          <input
+            type="date"
+            id="startDate"
+            class="filter-input"
+            [(ngModel)]="filters.startDate"
+            required />
+        </div>
+
+        <div class="filter-group">
+          <label for="endDate" class="filter-label">Fecha Fin</label>
+          <input
+            type="date"
+            id="endDate"
+            class="filter-input"
+            [(ngModel)]="filters.endDate"
+            required />
+        </div>
+
+        <div class="filter-actions">
+          <button
+            class="btn-secondary"
+            (click)="resetFilters()"
+            [disabled]="state() === 'loading'">
+            Limpiar
+          </button>
+          <button
+            class="btn-primary"
+            (click)="generateStatistics()"
+            [disabled]="state() === 'loading' || !filters.startDate || !filters.endDate">
+            @if (state() === 'loading') {
+              <span class="spinner-small"></span>
+              Generando...
+            } @else {
+              Generar Estadísticas
+            }
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section" aria-live="polite">
+      <!-- Idle State -->
+      @if (state() === 'idle') {
+        <div class="state-card idle-state">
+          <div class="state-icon">📊</div>
+          <h3 class="state-title">Seleccione el período a consultar</h3>
+          <p class="state-description">Configure las fechas y presione "Generar Estadísticas" para visualizar los KPIs y reportes.</p>
+        </div>
+      }
+
+      <!-- Loading State -->
+      @if (state() === 'loading') {
+        <div class="state-card loading-state">
+          <div class="spinner-large"></div>
+          <h3 class="state-title">Generando estadísticas...</h3>
+          <p class="state-description">Por favor espere mientras se calculan los indicadores.</p>
+        </div>
+      }
+
+      <!-- Error State -->
+      @if (state() === 'error') {
+        <div class="state-card error-state" role="alert">
+          <div class="state-icon">❌</div>
+          <h3 class="state-title">Error al generar estadísticas</h3>
+          <p class="state-description">{{ errorMessage() }}</p>
+          <button class="btn-retry" (click)="generateStatistics()">Reintentar</button>
+        </div>
+      }
+
+      <!-- Success State -->
+      @if (state() === 'success' && hasData()) {
+        <!-- KPI Cards Section -->
+        <section class="kpi-section">
+          <h2 class="section-title">Indicadores Clave</h2>
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-icon">💰</span>
+              <span class="kpi-label">Total Activos</span>
+              <span class="kpi-value">{{ formatCurrency(kpis()!.totalAssets) }}</span>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">📋</span>
+              <span class="kpi-label">Total Pasivos</span>
+              <span class="kpi-value">{{ formatCurrency(kpis()!.totalLiabilities) }}</span>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">🏦</span>
+              <span class="kpi-label">Patrimonio Neto</span>
+              <span class="kpi-value">{{ formatCurrency(kpis()!.netEquity) }}</span>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">📈</span>
+              <span class="kpi-label">Ingresos del Período</span>
+              <span class="kpi-value income">{{ formatCurrency(kpis()!.periodRevenue) }}</span>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">📉</span>
+              <span class="kpi-label">Gastos del Período</span>
+              <span class="kpi-value expense">{{ formatCurrency(kpis()!.periodExpenses) }}</span>
+            </div>
+
+            <div class="kpi-card" [class.profit]="kpis()!.isProfit" [class.loss]="!kpis()!.isProfit">
+              <span class="kpi-icon">{{ kpis()!.isProfit ? '✅' : '⚠️' }}</span>
+              <span class="kpi-label">{{ kpis()!.isProfit ? 'Utilidad Neta' : 'Pérdida Neta' }}</span>
+              <span class="kpi-value" [class]="profitLossClass()">{{ formatCurrency(kpis()!.netProfitLoss) }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Balance Sheet Section -->
+        <section class="collapsible-section">
+          <button class="section-header" (click)="toggleBalanceSheet()" [attr.aria-expanded]="balanceSheetExpanded()">
+            <h2 class="section-title">Balance General</h2>
+            <span class="toggle-icon" [class.expanded]="balanceSheetExpanded()">▼</span>
+          </button>
+
+          @if (balanceSheetExpanded() && balanceSheet()) {
+            <div class="section-content">
+              <div class="balance-status" [class.balanced]="balanceSheet()!.isBalanced" [class.unbalanced]="!balanceSheet()!.isBalanced">
+                {{ balanceSheet()!.isBalanced ? '✓ Cuadrado' : '⚠ Descuadrado (Diferencia: ' + formatCurrency(balanceSheet()!.difference) + ')' }}
+              </div>
+
+              <div class="balance-grid">
+                <!-- Assets -->
+                <div class="balance-column">
+                  <h3 class="column-title">Activos</h3>
+                  @for (category of balanceSheet()!.assets; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                      @for (account of category.accounts; track trackByAccountId($index, account)) {
+                        <div class="account-row">
+                          <span class="account-name">{{ account.accountNumber }} - {{ account.accountName }}</span>
+                          <span class="account-balance">{{ formatCurrency(account.balance) }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                  <div class="column-total">
+                    <span>Total Activos</span>
+                    <span>{{ formatCurrency(balanceSheet()!.totalAssets) }}</span>
+                  </div>
+                </div>
+
+                <!-- Liabilities & Equity -->
+                <div class="balance-column">
+                  <h3 class="column-title">Pasivos</h3>
+                  @for (category of balanceSheet()!.liabilities; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                      @for (account of category.accounts; track trackByAccountId($index, account)) {
+                        <div class="account-row">
+                          <span class="account-name">{{ account.accountNumber }} - {{ account.accountName }}</span>
+                          <span class="account-balance">{{ formatCurrency(account.balance) }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                  <div class="column-subtotal">
+                    <span>Total Pasivos</span>
+                    <span>{{ formatCurrency(balanceSheet()!.totalLiabilities) }}</span>
+                  </div>
+
+                  <h3 class="column-title mt-16">Patrimonio</h3>
+                  @for (category of balanceSheet()!.equity; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                      @for (account of category.accounts; track trackByAccountId($index, account)) {
+                        <div class="account-row">
+                          <span class="account-name">{{ account.accountNumber }} - {{ account.accountName }}</span>
+                          <span class="account-balance">{{ formatCurrency(account.balance) }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                  <div class="column-total">
+                    <span>Total Pasivo + Patrimonio</span>
+                    <span>{{ formatCurrency(balanceSheet()!.totalLiabilities + balanceSheet()!.totalEquity) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Income Statement Section -->
+        <section class="collapsible-section">
+          <button class="section-header" (click)="toggleIncomeStatement()" [attr.aria-expanded]="incomeStatementExpanded()">
+            <h2 class="section-title">Estado de Resultados</h2>
+            <span class="toggle-icon" [class.expanded]="incomeStatementExpanded()">▼</span>
+          </button>
+
+          @if (incomeStatementExpanded() && incomeStatement()) {
+            <div class="section-content">
+              <div class="income-statement-grid">
+                <!-- Revenue -->
+                <div class="is-section">
+                  <h3 class="is-title">Ingresos</h3>
+                  @for (category of incomeStatement()!.revenue; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                    </div>
+                  }
+                  <div class="is-subtotal">
+                    <span>Total Ingresos</span>
+                    <span>{{ formatCurrency(incomeStatement()!.totalRevenue) }}</span>
+                  </div>
+                </div>
+
+                <!-- Costs -->
+                <div class="is-section">
+                  <h3 class="is-title">Costos</h3>
+                  @for (category of incomeStatement()!.costs; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                    </div>
+                  }
+                  <div class="is-subtotal">
+                    <span>Total Costos</span>
+                    <span>{{ formatCurrency(incomeStatement()!.totalCosts) }}</span>
+                  </div>
+                </div>
+
+                <!-- Gross Profit -->
+                <div class="is-highlight">
+                  <span>Utilidad Bruta</span>
+                  <span>{{ formatCurrency(incomeStatement()!.grossProfit) }}</span>
+                </div>
+
+                <!-- Operating Expenses -->
+                <div class="is-section">
+                  <h3 class="is-title">Gastos Operativos</h3>
+                  @for (category of incomeStatement()!.operatingExpenses; track trackByCategory($index, category)) {
+                    <div class="category-group">
+                      <div class="category-header">
+                        <span>{{ category.categoryName }}</span>
+                        <span>{{ formatCurrency(category.subtotal) }}</span>
+                      </div>
+                    </div>
+                  }
+                  <div class="is-subtotal">
+                    <span>Total Gastos Operativos</span>
+                    <span>{{ formatCurrency(incomeStatement()!.totalOperatingExpenses) }}</span>
+                  </div>
+                </div>
+
+                <!-- Net Income -->
+                <div class="is-total" [class.profit]="incomeStatement()!.isProfit" [class.loss]="!incomeStatement()!.isProfit">
+                  <span>{{ incomeStatement()!.isProfit ? 'Utilidad Neta' : 'Pérdida Neta' }}</span>
+                  <span>{{ formatCurrency(incomeStatement()!.netIncome) }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Trial Balance Section -->
+        <section class="collapsible-section">
+          <button class="section-header" (click)="toggleTrialBalance()" [attr.aria-expanded]="trialBalanceExpanded()">
+            <h2 class="section-title">Balanza de Comprobación</h2>
+            <span class="toggle-icon" [class.expanded]="trialBalanceExpanded()">▼</span>
+          </button>
+
+          @if (trialBalanceExpanded() && trialBalance()) {
+            <div class="section-content">
+              <div class="balance-status" [class.balanced]="trialBalance()!.isBalanced" [class.unbalanced]="!trialBalance()!.isBalanced">
+                {{ trialBalance()!.isBalanced ? '✓ Cuadrado' : '⚠ Descuadrado (Diferencia: ' + formatCurrency(trialBalance()!.difference) + ')' }}
+              </div>
+
+              <div class="table-container">
+                <table class="trial-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Cuenta</th>
+                      <th>Tipo</th>
+                      <th class="text-right">Debe</th>
+                      <th class="text-right">Haber</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (account of trialBalance()!.accounts; track trackByAccountId($index, account)) {
+                      <tr>
+                        <td>{{ account.accountNumber }}</td>
+                        <td>{{ account.accountName }}</td>
+                        <td>{{ account.accountType }}</td>
+                        <td class="text-right">{{ account.debitBalance > 0 ? formatCurrency(account.debitBalance) : '-' }}</td>
+                        <td class="text-right">{{ account.creditBalance > 0 ? formatCurrency(account.creditBalance) : '-' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="3"><strong>TOTALES</strong></td>
+                      <td class="text-right"><strong>{{ formatCurrency(trialBalance()!.totalDebits) }}</strong></td>
+                      <td class="text-right"><strong>{{ formatCurrency(trialBalance()!.totalCredits) }}</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Predictions Section -->
+        <section class="predictions-section">
+          <h2 class="section-title">Predicciones con IA</h2>
+
+          @if (predictionState() === 'loading') {
+            <div class="prediction-loading">
+              <div class="spinner-small"></div>
+              <span>Calculando predicciones...</span>
+            </div>
+          } @else if (predictionState() === 'success') {
+            <div class="projection-tabs">
+              <button
+                class="tab-btn"
+                [class.active]="selectedProjectionMonths() === 3"
+                (click)="selectProjectionMonths(3)">
+                3 Meses
+              </button>
+              <button
+                class="tab-btn"
+                [class.active]="selectedProjectionMonths() === 6"
+                (click)="selectProjectionMonths(6)">
+                6 Meses
+              </button>
+              <button
+                class="tab-btn"
+                [class.active]="selectedProjectionMonths() === 12"
+                (click)="selectProjectionMonths(12)">
+                12 Meses
+              </button>
+            </div>
+
+            <div class="predictions-grid">
+              <app-prediction-line-chart
+                [data]="revenuePrediction()"
+                [title]="'Proyección de Ingresos'"
+                [projectionMonths]="selectedProjectionMonths()"
+                [hasInsufficientData]="hasInsufficientData()"
+                [insufficientDataMessage]="insufficientDataMessage()">
+              </app-prediction-line-chart>
+
+              <app-prediction-line-chart
+                [data]="expensesPrediction()"
+                [title]="'Proyección de Gastos'"
+                [projectionMonths]="selectedProjectionMonths()"
+                [hasInsufficientData]="hasInsufficientData()"
+                [insufficientDataMessage]="insufficientDataMessage()">
+              </app-prediction-line-chart>
+            </div>
+          }
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+          <h2 class="section-title">Gráficos</h2>
+
+          <div class="charts-grid">
+            <app-income-expense-bar-chart
+              [data]="chartData()?.incomeVsExpense ?? []">
+            </app-income-expense-bar-chart>
+
+            <app-expense-pie-chart
+              [data]="chartData()?.expenseDistribution ?? []">
+            </app-expense-pie-chart>
+
+            <app-equity-area-chart
+              [data]="chartData()?.equityEvolution ?? []">
+            </app-equity-area-chart>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="report-footer">
+          <span>Generado: {{ generatedAt() | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+        </footer>
+      }
+    </section>
+  </main>
+</div>

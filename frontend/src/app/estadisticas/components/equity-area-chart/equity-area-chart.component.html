@@ -1,0 +1,11 @@
+<div class="chart-container">
+  <h3 class="chart-title">Evolución del Patrimonio</h3>
+  @if (data.length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">📈</span>
+      <p>No hay datos de patrimonio disponibles</p>
+    </div>
+  } @else {
+    <canvas #chartCanvas [width]="600" [height]="height"></canvas>
+  }
+</div>

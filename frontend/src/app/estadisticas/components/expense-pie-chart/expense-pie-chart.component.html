@@ -1,0 +1,22 @@
+<div class="chart-container">
+  <h3 class="chart-title">Distribución de Gastos por Categoría</h3>
+  @if (data.length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">🥧</span>
+      <p>No hay datos de gastos disponibles</p>
+    </div>
+  } @else {
+    <div class="chart-content">
+      <canvas #chartCanvas [width]="size" [height]="size"></canvas>
+      <div class="legend">
+        @for (item of data; track item.category; let i = $index) {
+          <div class="legend-item">
+            <span class="legend-color" [style.background-color]="getColor(i, item)"></span>
+            <span class="legend-label">{{ item.category }}</span>
+            <span class="legend-percentage">{{ item.percentage | number:'1.1-1' }}%</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

@@ -65,5 +65,10 @@ export const routes: Routes = [
     path: 'reportes/estado-resultado',
     loadComponent: () => import('./reportes/estado-resultado/estado-resultado.component').then(m => m.EstadoResultadoComponent),
     canActivate: [authGuard]
+  },
+  {
+    path: 'estadisticas',
+    loadComponent: () => import('./estadisticas/estadisticas.component').then(m => m.EstadisticasComponent),
+    canActivate: [authGuard]
   }
 ];
